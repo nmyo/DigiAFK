@@ -1,64 +1,27 @@
-# Poke'Catch · 宝可梦放置冒险（单机复刻版）
+# Poke'Catch 单机离线版
 
-对 [pokecatch-online.netlify.app](https://pokecatch-online.netlify.app/) 的**完整单机复刻**：保留其页面框架、视觉风格与核心玩法（顶栏 + 左侧导航 + 彩色标题卡片、进度/徽章页、商店三页签、培育屋、游戏城、离线「欢迎回来」结算面板等），但**完全单机化**——删除账号、Discord/Google 登录、好友、交换、黑市、团体战等一切联机功能，改为**浏览器本地 JSON 存档**（零后端，可导出文件）。
+原站 [Poke'Catch](https://pokecatch-online.pages.dev/) 的**完全离线单机版**：前端 100% 使用原站代码
+（含中文语言包与全部素材），仅把 Supabase 后端替换为本地游客模式——**无账号、无云端、无任何网络请求**，
+进度由原站自身的游客存档机制保存在浏览器 localStorage（`pokecatch-anon`）。
 
-核心改动见下表：
+## 架构
 
-| 项目 | 原站 | 本版本 |
-| --- | --- | --- |
-| 账号体系 | Discord / Google 登录 + 云端存档 | **无账号**，本地 JSON 文件存档 |
-| 联机功能 | 好友 / 交换 / 黑市 / 团体战 | **全部移除** |
-| 进化 | 等级 + 部分需要道具/交换 | **纯等级进化**（Lv.16 / Lv.32），无道具、无交换 |
-| 捕获 | 精灵球道具消耗 | **无限免费捕获**，仓库上限 300 兜底 |
-| 重复精灵 | 占用仓库 | **自动折算**：金币 1+等级÷3 + 全队经验；异色优先保留 |
-| 离线收益 | 需在线挂机 | **离线完整推演**，上限 72 小时，mulberry32 可复现 |
-| 后台运行 | — | Web Worker 计时，后台标签页不节流；关页后靠离线推演补算 |
-| 图鉴 | 全世代扩展 | 关都 **151 只**（PokéAPI 中文种名） |
+```
+index.html（原站 shell 页，仅 3 行适配）
+ └─ ./boot.js        ← 原 boot.js，仅把 CDN 域替换为部署根（new URL('.',location)）
+     ├─ bundle/app.9258c082d1.css      原站样式（内嵌像素字体）
+     ├─ bundle/vendor-supabase.*.js    原 vendor 库 + 尾部追加的游客 mock
+     │    └─ createClient 被替换为「永远未登录 + 全部调用静默空转」
+     ├─ bundle/app.c74e480997.js       原站全部游戏逻辑（一字未改）
+     ├─ bundle/lang-*.js               8 语言包（zh 浏览器自动中文）
+     └─ assets/                        原站素材 2200+（精灵/道具/UI/场景）
+```
 
-## 功能一览
+原站 JS 的任何逻辑都未修改。三处「适配层」改动：
 
-- **冒险**：自动战斗与捕获，9 条路线 × 3 场解锁 8 枚道馆徽章 + 冠军青绿；最终形态夜间/雨天出没，传说宝可梦（三神鸟、超梦、梦幻）需夜间雨天。
-- **进度**：徽章墙、路线解锁状态、训练家档案（捕获/胜场/转化/孵化等统计）。
-- **队伍/仓库**：6 槽队伍 + 300 仓库、5 套预设、搜索排序、放生、等级进化按钮。
-- **图鉴**：151 只，持有/曾收录/已见过/未收录过滤，中文说明与进化链。
-- **商店**：**购买 / 卖出 / 训练** 三页签（卖出半价回收；特训费用 = 等级×4，立刻结算大额经验）。
-- **培育屋**：**4 个寄放位**；**需要一只百变怪**寄放期间在场才产蛋（同版本幼年体，4 小时孵化），否则只提供经验加成。
-- **挑战**：道馆重赛、传说遭遇、对战塔、地下通道、游戏城（老虎机 + 弹珠，全部单机）。
-- **成就**：23 个单机成就（捕获/胜场/徽章/图鉴/异色/孵化等），随存档实时解锁。
-- **昼夜天气**：顶栏实时显示夜间/白天与雨天状态（影响遭遇池）。
-- **欢迎回来**：重新打开存档时金边结算面板——赢得的战斗、金币、捕获、图鉴新增（NEW 徽章小图）、重复转化与首领击杀。
-
-## 存档机制
-
-**纯前端、零后端**：没有服务器、没有账号、没有任何 API 调用，进度以 JSON 字符串形式存在浏览器的 `localStorage`（键 `pc-save-v1`）。
-
-- 开始游戏后自动保存，3 秒节流；关键操作、页面隐藏、关闭标签页时立即写入。
-- 刷新或重开浏览器后，标题页按钮变成「继续上次进度」，点击即恢复并结算离线收益。
-- 满仓（6 只队伍 + 300 只仓库 + 全图鉴）存档约 **20 KB**，占 `localStorage` 上限的 0.4%。
-- 「导出」下载 `pokecatch-save.json` 备份；「打开存档」可导入任意 JSON 快照（导入后同样写回浏览器）。
-- Chromium 系还可额外绑定一个磁盘文件自动续写（可选，不绑也能正常存档）。
-- 存档为纯 JSON（`v:1`），旧数码兽版存档不兼容；旧结构（`boarded` 单槽培育屋）会自动迁移为 4 槽 `board`。
-- 清空浏览器数据会丢失进度，重要存档请导出备份。
-
-## 关闭页面后的运行
-
-浏览器关页后无法执行脚本，采用**离线推演**：重新打开存档时按 1100ms/回合完整模拟遭遇、战斗、捕获、金币与经验（练度足够会自动挑战道馆），上限 72 小时，分块结算不卡页面（约 23.6 万回合 < 1 秒）。
-
-## 目录结构
-
-| 路径 | 用途 |
-| --- | --- |
-| [site/index.html](site/index.html) | 单页框架（顶栏/侧栏/主区 + 内联布局样式） |
-| [site/catalog.js](site/catalog.js) | 关都 151 只宝可梦图鉴数据（PokéAPI 中文） |
-| [site/game.js](site/game.js) | 游戏内核（纯函数 + 随机/时间注入，可离线推演） |
-| [site/ui.js](site/ui.js) | DOM 渲染与交互 |
-| [site/assets/pokemon/](site/assets/pokemon/) | 精灵图（普通 + 异色，Pokémon Showdown/PokéSprite） |
-| [site/bundle/](site/bundle/) | Poke’Catch 原站样式（配色/字体复用） |
-| [tests/game.test.cjs](tests/game.test.cjs) | 内核测试 21 个用例（`node --test tests/game.test.cjs`） |
-| [scripts/deploy_vercel.py](scripts/deploy_vercel.py) | Vercel REST API 一键部署（零依赖） |
-| [scripts/deploy-pages.sh](scripts/deploy-pages.sh) | 同步 `site/` 到 `gh-pages` 分支（GitHub Pages 发布） |
-| [scripts/fetch_sprites.sh](scripts/fetch_sprites.sh) | 补齐/重下 151 张精灵图 |
-| [netlify.toml](netlify.toml) / [vercel.json](vercel.json) | 静态部署配置（发布目录 `site`） |
+1. `index.html`：SW 注册相对路径、脚本指向本地 `./boot.js`、保留 BOOT_FAIL 兜底
+2. `boot.js`：文本替换 `https://pokecatch-online.pages.dev/` → `""+(new URL(".",location))+"`（12 处）
+3. `vendor-supabase.js`：文件尾部追加约 80 行游客 mock（不联网、不登录、社交功能空数据）
 
 ## 本地试玩
 
@@ -66,14 +29,11 @@
 cd site && python3 -m http.server 8080   # 打开 http://localhost:8080
 ```
 
-不要用 `file://` 直接双击打开：浏览器会限制 Service Worker 与本地存储，建议走任意静态服务器（Vercel / Netlify / GitHub Pages）。项目本身零外部依赖，无需 Node 运行时。
-
 ## 部署
 
 - **GitHub Pages**（推荐，国内可直连）：`bash scripts/deploy-pages.sh` → <https://nmyo.github.io/DigiAFK/>
-- **Vercel**：`python3 scripts/deploy_vercel.py --token <TOKEN> --prod`（详见脚本内注释）。
-- **Netlify**：连接仓库即可，`netlify.toml` 已配置发布目录。
+- 重建离线 bundle：`node scripts/build-offline.cjs`（从 `../pokecatch-mirror` 生成）
+- ⚠️ `*.vercel.app` 默认域名在国内被 DNS 污染 + SNI 阻断，需绑定自有域名才能访问
 
-> ⚠️ `*.vercel.app` 默认域名在国内被 DNS 污染（解析到 Facebook/Twitter 的 IP）并伴随 SNI 阻断，浏览器会报 `ERR_CONNECTION_RESET`，Vercel 控制台却可以正常打开。这不是项目问题，需要绑定自有域名或改用 GitHub Pages。同理，`*.netlify.app`、`*.pages.dev` 的可用性也随网络环境波动。
-
-> 个人非商用复刻项目。宝可梦相关商标归 Nintendo / Game Freak / Creatures 所有；精灵图来自 Pokémon Showdown / PokéSprite。
+> 个人非商用粉丝项目。宝可梦相关名称与素材归 Nintendo / Game Freak / Creatures 所有；
+> 前端代码与素材来自 Poke'Catch 原站。
