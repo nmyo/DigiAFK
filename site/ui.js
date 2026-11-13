@@ -2,8 +2,15 @@
 (() => {
   const G=DigitalGame, $=id=>document.getElementById(id);
   const SAVE_NAME='pokecatch-save.json';
+  // 浏览器本地存档：整份进度序列化成 JSON 字符串存进 localStorage，
+  // 刷新、关页、断网都不丢；磁盘文件是可选的额外备份。
+  const LS_KEY='pc-save-v1';
+  const lsRead=()=>{ try { return localStorage.getItem(LS_KEY); } catch { return null; } };
+  const lsWrite=raw=>{ try { localStorage.setItem(LS_KEY,raw); return true; } catch { return false; } };
+  const lsClear=()=>{ try { localStorage.removeItem(LS_KEY); } catch {} };
+  let localSave=lsRead();
   let state, page='adventure', screen='title', paused=false, timer, selected=null, dexPick=null;
-  let fileHandle=null, lastWrite=0, worker=null, settling=false, shopTab='buy';
+  let fileHandle=null, lastWrite=0, lastLocal=0, worker=null, settling=false, shopTab='buy';
   // File System Access API（Chromium 系）：可对同一个 JSON 文件自动续写。
   const hasFS=typeof window.showOpenFilePicker==='function'&&typeof window.showSaveFilePicker==='function';
   let fsUsable=hasFS;
@@ -47,26 +54,15 @@
     if (!state) return;
     state.savedAt=Math.max(state.savedAt,now);
     const raw=G.serialize(state);
-    if (fileHandle&&(force||Date.now()-lastWrite>5000)) {
-      try {
-        await writeHandle(fileHandle,raw);
-        lastWrite=Date.now();
-        status('已自动保存');
-      } catch { status('存档写入失败，请重新打开或导出'); }
-    } else if (!fileHandle) {
-      status(fsUsable?'内存中 · 请导出保存':'请定期导出备份');
+    // 1) 浏览器本地存档：始终生效，不依赖任何文件权限
+    if (force||now-lastLocal>3000) {
+      if (lsWrite(raw)) { localSave=raw; lastLocal=now; status('已保存到浏览器'); }
+      else status('浏览器存储不可用，请用导出备份');
     }
-  }
-  async function pickSaveTarget() {
-    if (!fsUsable) return false;
-    try {
-      fileHandle=await window.showSaveFilePicker({suggestedName:SAVE_NAME,
-        types:[{description:'宝可梦图鉴存档',accept:{'application/json':['.json']}}]});
-      lastWrite=0;
-      return true;
-    } catch (error) {
-      if (error?.name!=='AbortError') fsUsable=false; // 环境不支持/被拒绝时退回下载模式
-      return false;
+    // 2) 若额外绑定了磁盘文件，一并续写（可选能力）
+    if (fileHandle&&(force||now-lastWrite>5000)) {
+      try { await writeHandle(fileHandle,raw); lastWrite=now; status('已保存 · 浏览器 + 文件'); }
+      catch { status('文件写入失败，浏览器存档不受影响'); }
     }
   }
   function download() {
@@ -79,6 +75,21 @@
     a.click();
     URL.revokeObjectURL(a.href);
     status('已导出 '+SAVE_NAME);
+  }
+  // 有本地存档时优先“继续”，否则走文件导入
+  function openOrResume() {
+    if (localSave) { resumeLocal(); return; }
+    openSave();
+  }
+  function resumeLocal() {
+    const s=G.load(localSave);
+    if (!s) {
+      localSave=null; lsClear();
+      notice('浏览器存档无法读取，已清除；可用「打开存档文件」导入备份。');
+      render(); return;
+    }
+    state=s;
+    enter(true);
   }
   function loadFrom(text) {
     const s=G.load(text);
@@ -145,6 +156,7 @@
     show('screen-title',screen==='title');
     show('screen-starter',screen==='starter');
     $('new-game').textContent=state?'新建冒险（覆盖当前进度）':'NEW GAME';
+    $('open-save').textContent=localSave?'继续上次进度':'打开存档文件';
     if (screen!=='game') return;
     topbar();
     document.querySelectorAll('[data-page]').forEach(el=>{
@@ -395,9 +407,10 @@
     $('set-theme').innerHTML=[['dark','深色'],['light','浅色']].map(([v,l])=>
       '<button data-set-theme="'+v+'" class="'+(theme===v?'on':'')+'">'+l+'</button>').join('');
     $('set-worker').textContent=worker?'运行中':'备用计时器';
-    $('set-file').textContent=fileHandle
-      ?'已绑定 '+fileHandle.name+'，每次推进自动续写'
-      :'尚未绑定文件，进度仅在本页内存中（可用「导出」备份）';
+    const kb=localSave?(localSave.length/1024).toFixed(1)+' KB':'—';
+    $('set-file').textContent=localSave
+      ? '浏览器本地存档 '+kb+(fileHandle?'，另绑定 '+fileHandle.name:'')+'，每次推进自动保存'
+      : '尚无本地存档，开始游戏后自动生成';
   }
   function applyTheme(theme) {
     document.documentElement.dataset.theme=theme;
@@ -469,7 +482,7 @@
   }
 
   $('choices').innerHTML=G.starters.map(id=>btn('starter',id,art(id)+'<span style="margin-left:6px">'+G.dex[id].name+'</span>')).join('');
-  $('open-save').onclick=openSave;
+  $('open-save').onclick=openOrResume;
   $('open-settings').onclick=()=>{ if (!state) { notice('请先开始或打开存档。'); return; } page='settings'; render(); };
   $('export-save').onclick=download;
   $('save-file').onchange=async event=>{
@@ -517,7 +530,7 @@
     if (button.id==='set-wipe') {
       if (confirm('清空当前进度并回到标题页？此操作无法撤销，建议先导出存档。')) {
         stopLoop();
-        state=null; fileHandle=null; screen='title'; page='adventure'; lastWrite=0;
+        state=null; fileHandle=null; localSave=null; lsClear(); screen='title'; page='adventure'; lastWrite=0; lastLocal=0;
         status('进度已清空');
         render();
       }
@@ -592,8 +605,8 @@
   $('choices').addEventListener('click',async event=>{
     const id=event.target.closest('button')?.dataset.value;
     if (!G.starters.includes(id)||(state&&!confirm('新建冒险会覆盖当前进度。继续吗？'))) return;
+    if (state&&state.team?.length&&!localSave) persist(true);
     state=G.create(id,Date.now());
-    await pickSaveTarget();
     enter(false);
   });
   // 页面隐藏或关闭前立刻落盘；回到前台时补算后台期间可能被节流遗漏的进度。
