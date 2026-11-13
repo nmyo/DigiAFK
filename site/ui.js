@@ -155,8 +155,8 @@
     const show=(id,on)=>{const el=$(id);el.hidden=!on;el.classList.toggle('active',on);};
     show('screen-title',screen==='title');
     show('screen-starter',screen==='starter');
-    $('new-game').textContent=state?'新建冒险（覆盖当前进度）':'NEW GAME';
-    $('open-save').textContent=localSave?'继续上次进度':'打开存档文件';
+    $('title-go').textContent=localSave?'继续上次进度':'NEW GAME';
+    $('ti-save').textContent=localSave?'检测到浏览器本地存档 · 点击上方按钮继续':'进度将自动保存在浏览器中';
     if (screen!=='game') return;
     topbar();
     document.querySelectorAll('[data-page]').forEach(el=>{
@@ -481,8 +481,107 @@
     $('offline-overlay').hidden=false;
   }
 
+  // ---- 标题屏氛围（原站 title-fx / pen-walker 结构与类名）----
+  function modal(cls,html){
+    const ov=document.createElement('div');
+    ov.className='overlay'; ov.style.zIndex=970;
+    ov.innerHTML='<div class="'+cls+'" style="max-width:520px;width:100%;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:18px;max-height:80vh;overflow:auto">'+html+
+      '<button class="btn gold" style="width:100%;margin-top:14px">明白了！</button></div>';
+    ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+    ov.querySelector('button').onclick=()=>ov.remove();
+    document.body.appendChild(ov);
+  }
+  function titleHow(){
+    modal('ti-how','<h3>怎么玩</h3><ul class="ti-rules">'+
+      '<li><span class="ic">⚔️</span><span><b>自动冒险</b><small>队伍自动战斗并捕获野生宝可梦，关闭页面后继续结算最多 72 小时。</small></span></li>'+
+      '<li><span class="ic">🏅</span><span><b>道馆挑战</b><small>每条路线获胜 3 场即可挑战道馆，赢下徽章解锁新路线。</small></span></li>'+
+      '<li><span class="ic">🌙</span><span><b>稀有出没</b><small>最终形态在夜间出没，传说宝可梦只在夜间雨天现身。</small></span></li>'+
+      '<li><span class="ic">💾</span><span><b>本地存档</b><small>进度自动保存在浏览器，可随时在设置页导出 JSON 备份。</small></span></li></ul>');
+  }
+  function titleChangelog(){
+    modal('ti-how','<h3>更新日志</h3><ul class="ti-rules">'+
+      '<li><span class="ic">🎨</span><span><b>标题屏对齐原站</b><small>采用原站 title-fx 设计：精灵漫游、投球动画与像素字标题。</small></span></li>'+
+      '<li><span class="ic">📦</span><span><b>单机复刻 v1.0</b><small>关都 151 只 / 等级进化 / 9 道馆 / 离线 72 小时推演。</small></span></li></ul>');
+  }
+  function wander(w){
+    const move=()=>{
+      if (screen!=='title'||!w.isConnected) return;
+      const cur=parseFloat(w.style.left), curY=parseFloat(w.style.top);
+      const nx=Math.min(88,Math.max(8,cur+(Math.random()-.5)*20));
+      const ny=Math.min(92,Math.max(58,curY+(Math.random()-.5)*12));
+      w.querySelector('.body').classList.toggle('flip',nx<cur);
+      w.classList.add('walk');
+      w.style.left=nx+'%'; w.style.top=ny+'%';
+      setTimeout(()=>{ w.classList.remove('walk'); wander(w); },2600+Math.random()*2200);
+    };
+    setTimeout(move,1500+Math.random()*4000);
+  }
+  function spawnWalkers(){
+    const field=document.querySelector('.ti-field');
+    if (!field||field.childElementCount) return;
+    for (let i=0;i<6;i++){
+      const no=1+Math.floor(Math.random()*151);
+      const w=document.createElement('div');
+      w.className='pen-walker';
+      w.style.setProperty('--fx','68px');
+      w.style.setProperty('--fy','100px');
+      w.innerHTML='<i class="shadow"></i><span class="emo"></span><div class="body"><img src="assets/pokemon/'+no+'.png" alt=""></div>';
+      w.style.left=(12+Math.random()*74)+'%';
+      w.style.top=(64+Math.random()*24)+'%';
+      field.appendChild(w);
+      wander(w);
+    }
+  }
+  function throwBall(){
+    if (screen!=='title') return;
+    const fx=document.querySelector('.ti-field');
+    if (!fx) return;
+    const r=fx.getBoundingClientRect();
+    const sx=r.width*(0.2+Math.random()*0.6), sy=r.height*0.96;
+    const tx=r.width*(0.2+Math.random()*0.6), ty=r.height*(0.25+Math.random()*0.45);
+    const ball=document.createElement('img');
+    ball.className='ti-ball'; ball.src='assets/items/poke-ball.png';
+    ball.style.zIndex=6; fx.appendChild(ball);
+    ball.animate([
+      {transform:'translate('+(sx-21)+'px,'+(sy-21)+'px) rotate(0deg)'},
+      {transform:'translate('+((sx+tx)/2-21)+'px,'+(Math.min(sy,ty)-140)+'px) rotate(220deg)',offset:.5},
+      {transform:'translate('+(tx-21)+'px,'+(ty-21)+'px) rotate(540deg)'}
+    ],{duration:900,easing:'linear'}).finished.then(()=>{
+      ball.classList.add('open');
+      const ring=document.createElement('i');
+      ring.className='ti-ring';
+      ring.style.left=tx+'px'; ring.style.top=ty+'px';
+      fx.appendChild(ring);
+      ring.animate([{width:'8px',height:'8px',opacity:1},{width:'90px',height:'90px',opacity:0}],{duration:500}).finished.then(()=>ring.remove()).catch(()=>{});
+      for (let i=0;i<3;i++){
+        const s=document.createElement('i');
+        s.className='ti-spark';
+        s.style.left=tx+'px'; s.style.top=ty+'px';
+        fx.appendChild(s);
+        const a=Math.random()*6.283, d=26+Math.random()*22;
+        s.animate([{transform:'translate(0,0)',opacity:1},{transform:'translate('+(Math.cos(a)*d)+'px,'+(Math.sin(a)*d)+'px)',opacity:0}],{duration:480}).finished.then(()=>s.remove()).catch(()=>{});
+      }
+      setTimeout(()=>ball.remove(),700);
+    }).catch(()=>ball.remove());
+  }
+  setInterval(()=>{ if (screen==='title') throwBall(); },4600);
+  function titleIntro(){
+    try{
+      document.querySelector('.ti-logo')?.animate(
+        [{transform:'translateY(-40px) scale(.9)',opacity:0},{transform:'translateY(4px) scale(1.02)',opacity:1,offset:.7},{transform:'none',opacity:1}],
+        {duration:520,easing:'cubic-bezier(.2,1.4,.4,1)',fill:'both'});
+      document.querySelector('.ti-menu')?.animate(
+        [{transform:'translateY(16px)',opacity:0},{transform:'none',opacity:1}],
+        {duration:320,delay:650,easing:'ease-out',fill:'both'});
+    }catch(e){}
+  }
+  spawnWalkers();
+  titleIntro();
+
   $('choices').innerHTML=G.starters.map(id=>btn('starter',id,art(id)+'<span style="margin-left:6px">'+G.dex[id].name+'</span>')).join('');
-  $('open-save').onclick=openOrResume;
+  $('title-go').onclick=()=>{ if (localSave) resumeLocal(); else { screen='starter'; render(); } };
+  $('title-how').onclick=titleHow;
+  $('title-cl').onclick=titleChangelog;
   $('open-settings').onclick=()=>{ if (!state) { notice('请先开始或打开存档。'); return; } page='settings'; render(); };
   $('export-save').onclick=download;
   $('save-file').onchange=async event=>{
@@ -490,7 +589,6 @@
     event.target.value='';
     if (file) loadFrom(await file.text());
   };
-  $('new-game').onclick=()=>{screen='starter';render();};
   $('back-title').onclick=()=>{screen='title';render();};
   $('box-search').oninput=team;
   $('box-order').onchange=team;
