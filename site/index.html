@@ -21,7 +21,7 @@
     // first visit, so those images don't come from Netlify
     // updateViaCache 'all' (09/11): the browser's update check obeys /sw.js's max-age (netlify.toml), about once a day
     // and per browser instead of once per launch (233 000 of Netlify's 320 000 billed requests a day)
-    window.SW_REG = 'serviceWorker' in navigator ? navigator.serviceWorker.register('/sw.js', { updateViaCache: 'all' }).catch(function () {}) : Promise.resolve();
+    window.SW_REG = 'serviceWorker' in navigator ? navigator.serviceWorker.register('./sw.js', { updateViaCache: 'all' }).catch(function () {}) : Promise.resolve();
     // The iPhone's icon, so iOS doesn't try every size. Absolute: boot.js puts a <base> on the CDN, which doesn't have it
     var appleIcon = document.createElement('link');
     appleIcon.rel = 'apple-touch-icon'; appleIcon.href = location.origin + '/apple-touch-icon.png';
@@ -51,7 +51,7 @@
       (document.body || document.documentElement).appendChild(box);
     };
   </script>
-  <script src="https://pokecatch-online.pages.dev/boot.js" onerror="BOOT_FAIL()"></script>
+  <script src="./shell.js" onerror="BOOT_FAIL()"></script>
 </head>
 <body>
 </body>
