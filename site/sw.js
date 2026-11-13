@@ -8,7 +8,7 @@
  * cache.put 必须 await：Response.clone() 的两支 body 共享同一个 tee，
  * 不等待写入就去读另一支，会让其中一支收到 net::ERR_ABORTED（图片偶发白块）。
  */
-const VERSION = 'pc-cache-v3';
+const VERSION = 'pc-cache-v4';
 const CORE = [
   './',
   './index.html',
@@ -55,22 +55,22 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // 外部资源一律走网络
 
-  // 页面导航：网络优先，保证更新能立刻生效；断网时回退到缓存的首页
-  if (req.mode === 'navigate') {
+  // 脚本/样式/页面：网络优先，保证每次打开都是最新版；断网时回退缓存
+  if (req.mode === 'navigate' || req.destination === 'script' || req.destination === 'style') {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req);
         const cache = await caches.open(VERSION);
-        await put(cache, './index.html', fresh.clone());
+        if (fresh.ok) await put(cache, req, fresh.clone());
         return fresh;
       } catch (e) {
-        return (await caches.match(req)) || (await caches.match('./index.html')) || Response.error();
+        return (await caches.match(req)) || Response.error();
       }
     })());
     return;
   }
 
-  // 静态资源：缓存优先，后台静默更新
+  // 图片等静态资源：缓存优先，后台静默更新
   event.respondWith((async () => {
     const cache = await caches.open(VERSION);
     const hit = await cache.match(req);
