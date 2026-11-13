@@ -1,25 +1,100 @@
 'use strict';
 const DigitalGame = (() => {
-  const dex = typeof module === 'undefined' ? digimonCatalog : require('./catalog.js');
+  const dex = typeof module === 'undefined' ? pokemonDex : require('./catalog.js').dex;
+  // 主线：关都 8 枚道馆徽章 + 冠军战，按击败顺序解锁。
   const bosses = [
-    ['metalseadramon','钢铁海龙兽'], ['pinochimon','木偶兽'],
-    ['mugendramon','机械邪龙兽'], ['piemon','小丑皇'], ['apocalymon','启示录兽']
-  ].map(([id,name],i) => ({id,name,level:8+i*7}));
-  const routes = ['海岸','森林','机械城','黑暗山麓','终末之地'];
+    ['尼比道馆 · 小刚'], ['华蓝道馆 · 小霞'], ['枯叶道馆 · 马志士'],
+    ['彩虹道馆 · 莉佳'], ['浅红道馆 · 阿桔'], ['金黄道馆 · 娜姿'],
+    ['红莲道馆 · 夏伯'], ['常磐道馆 · 坂木'], ['宝可梦联盟 · 青绿']
+  ].map(([name],i) => ({id:'gym'+(i+1),name,level:12+i*6}));
+  const routes = ['1号道路','月见山','地鼠洞窟','宝可梦塔','自行车道','金黄市','双子岛','冠军之路','华蓝洞窟'];
   const items = {
-    'evolution-chip':{name:'进化芯片',price:40,gate:1,count:1},
-    ration:{name:'回复补给',price:15,gate:0,count:1}
+    'evolution-chip':{name:'进化石',price:40,gate:1,count:1},
+    ration:{name:'伤药',price:15,gate:0,count:1},
+    token:{name:'游戏城代币',price:12,gate:2,count:1}
   };
   const activities = {
-    raid:{name:'单人突袭',gate:2,level:19,reward:50},
+    raid:{name:'道馆重赛',gate:2,level:19,reward:50},
     legend:{name:'传说遭遇',gate:3,level:24,reward:65},
-    tower:{name:'战斗塔',gate:3,level:21,reward:45},
-    underground:{name:'地下探索',gate:1},
-    casino:{name:'赌场',gate:2}
+    tower:{name:'对战塔',gate:3,level:21,reward:45},
+    underground:{name:'地下通道',gate:1},
+    casino:{name:'游戏城',gate:2}
   };
+  // 属性克制表（攻击方 → 防守方倍率），未列出的组合为 1 倍。
+  const EFF = {
+    '一般':{'岩石':0.5,'幽灵':0,'钢':0.5},
+    '火':{'火':0.5,'水':0.5,'草':2,'冰':2,'虫':2,'岩石':0.5,'龙':0.5,'钢':2},
+    '水':{'火':2,'水':0.5,'草':0.5,'地面':2,'岩石':2,'龙':0.5},
+    '电':{'水':2,'电':0.5,'草':0.5,'地面':0,'飞行':2,'龙':0.5},
+    '草':{'火':0.5,'水':2,'草':0.5,'毒':0.5,'地面':2,'飞行':0.5,'虫':0.5,'岩石':2,'龙':0.5,'钢':0.5},
+    '冰':{'火':0.5,'水':0.5,'草':2,'冰':0.5,'地面':2,'飞行':2,'龙':2,'钢':0.5},
+    '格斗':{'一般':2,'冰':2,'毒':0.5,'飞行':0.5,'超能':0.5,'虫':0.5,'岩石':2,'幽灵':0,'恶':2,'钢':2,'妖精':0.5},
+    '毒':{'草':2,'毒':0.5,'地面':0.5,'岩石':0.5,'幽灵':0.5,'钢':0,'妖精':2},
+    '地面':{'火':2,'电':2,'草':0.5,'毒':2,'飞行':0,'虫':0.5,'岩石':2,'钢':2},
+    '飞行':{'电':0.5,'草':2,'格斗':2,'虫':2,'岩石':0.5,'钢':0.5},
+    '超能':{'格斗':2,'毒':2,'超能':0.5,'恶':0,'钢':0.5},
+    '虫':{'火':0.5,'草':2,'格斗':0.5,'毒':0.5,'飞行':0.5,'超能':2,'幽灵':0.5,'恶':2,'钢':0.5,'妖精':0.5},
+    '岩石':{'火':2,'冰':2,'格斗':0.5,'地面':0.5,'飞行':2,'虫':2,'钢':0.5},
+    '幽灵':{'一般':0,'超能':2,'幽灵':2,'恶':0.5},
+    '龙':{'龙':2,'钢':0.5,'妖精':0},
+    '恶':{'格斗':0.5,'超能':2,'幽灵':2,'恶':0.5,'妖精':0.5},
+    '钢':{'火':0.5,'水':0.5,'电':0.5,'冰':2,'岩石':2,'钢':0.5,'妖精':2},
+    '妖精':{'火':0.5,'格斗':2,'毒':0.5,'龙':2,'恶':2}
+  };
+  const eff = (atk,defTypes) => (defTypes||['一般']).reduce((m,t)=>m*((EFF[atk]||{})[t]??1),1);
   const hour = 3600000;
-  const starters = ['agumon','palmon','gabumon'];
+  const starters = ['p001','p004','p007']; // 妙蛙种子 / 小火龙 / 杰尼龟
   const boxMax = 300; // 仓库容量：捕获免费且不限次数，用仓库上限兜住挂机产出
+  const boardMax = 4; // 培育屋寄放位
+  const DITTO = 'p132'; // 孵蛋需要一只百变怪
+  // 昼夜与天气：夜间（本地 18:00-6:00）出最终形态，雨天再叠加传说。
+  function weather(now) {
+    const h=new Date(now).getHours();
+    return {night:h<6||h>=18, rain:Math.floor(now/hour)%3===2};
+  }
+  // 单机成就：全部可离线达成，按存档即时推导。
+  const achievements = [
+    {id:'start',name:'冒险启程',desc:'从大木博士那里领到第一只伙伴',need:1},
+    {id:'catch10',name:'新手捕手',desc:'累计捕获 10 只宝可梦',need:10},
+    {id:'catch100',name:'捕虫少年',desc:'累计捕获 100 只宝可梦',need:100},
+    {id:'catch500',name:'捕捉大师',desc:'累计捕获 500 只宝可梦',need:500},
+    {id:'win25',name:'初出茅庐',desc:'赢得 25 场战斗',need:25},
+    {id:'win200',name:'身经百战',desc:'赢得 200 场战斗',need:200},
+    {id:'win1000',name:'关都传奇',desc:'赢得 1000 场战斗',need:1000},
+    {id:'badge1',name:'第一枚徽章',desc:'击败尼比道馆的小刚',need:1},
+    {id:'badge4',name:'半程徽章',desc:'集齐 4 枚道馆徽章',need:4},
+    {id:'badge8',name:'徽章收藏家',desc:'集齐 8 枚道馆徽章',need:8},
+    {id:'champion',name:'联盟冠军',desc:'击败冠军青绿',need:9},
+    {id:'dex10',name:'图鉴初填',desc:'收录 10 种宝可梦',need:10},
+    {id:'dex50',name:'图鉴过半',desc:'收录 75 种宝可梦',need:75},
+    {id:'dex151',name:'全图鉴',desc:'收录关都全部 151 种',need:151},
+    {id:'shiny',name:'闪光时刻',desc:'收服一只异色宝可梦',need:1},
+    {id:'dupes50',name:'变废为宝',desc:'重复个体折算 50 次',need:50},
+    {id:'egg1',name:'新生命',desc:'在培育屋孵出第一只宝可梦',need:1},
+    {id:'egg10',name:'培育专家',desc:'累计孵化 10 只宝可梦',need:10},
+    {id:'level100',name:'满级伙伴',desc:'拥有一只 Lv.100 的宝可梦',need:1},
+    {id:'rich',name:'小富翁',desc:'持有 10000 金币',need:1},
+    {id:'casino10',name:'游戏城常客',desc:'在游戏城游玩 10 次',need:10},
+    {id:'tower10',name:'对战塔挑战者',desc:'通关对战塔 10 次',need:10},
+    {id:'box100',name:'仓库管理员',desc:'仓库同时存有 100 只宝可梦',need:100},
+  ];
+  // 依据存档推导已达成的成就 id（不落盘，随进度实时解锁）。
+  function achieved(s) {
+    const stats=s.stats||{catches:0,wins:0};
+    const value={
+      start:1, catch10:stats.catches, catch100:stats.catches, catch500:stats.catches,
+      win25:stats.wins, win200:stats.wins, win1000:stats.wins,
+      badge1:s.cleared.length, badge4:s.cleared.length, badge8:s.cleared.length,
+      champion:s.cleared.includes('gym9')?9:0,
+      dex10:s.seen.length, dex50:s.seen.length, dex151:s.seen.length,
+      shiny:Object.values(s.mons).some(m=>m.shiny)?1:0,
+      dupes50:s.dupes??0, egg1:s.hatched??0, egg10:s.hatched??0,
+      level100:Object.values(s.mons).some(m=>m.level>=100)?1:0,
+      rich:s.coins>=10000?1:0, casino10:s.records.casino??0,
+      tower10:s.records.tower??0, box100:s.box.length,
+    };
+    return achievements.filter(a=>(value[a.id]??0)>=a.need).map(a=>a.id);
+  }
   const hp = mon => 22 + mon.level * 4 + dex[mon.id].stage * 5;
   const add = (s,id,level,shiny=false) => {
     const uid = 'm'+s.nextUid++;
@@ -33,9 +108,9 @@ const DigitalGame = (() => {
   function create(id,now) {
     if (!starters.includes(id)) throw new Error('Invalid starter');
     const s = {v:1,nextUid:1,mons:{},team:[],box:[],seen:[],discovered:[],
-      coins:20,bag:{},dupes:0,route:0,routeWins:[0,0,0,0,0],cleared:[],
+      coins:3000,bag:{},dupes:0,route:0,routeWins:[0,0,0,0,0,0,0,0,0],cleared:[],
       battle:null,lead:0,swap:null,presets:[null,null,null,null,null],
-      boarded:null,egg:null,records:{},savedAt:now,speed:1};
+      board:[],egg:null,hatched:0,stats:{catches:0,wins:0},records:{},savedAt:now,speed:1};
     add(s,id,5);
     return s;
   }
@@ -57,22 +132,19 @@ const DigitalGame = (() => {
   function preset(s,index,write) {
     if (!Number.isInteger(index) || index<0 || index>=5 || s.battle) return false;
     if (write) { s.presets[index] = [...s.team]; return true; }
-    const ids = s.presets[index]?.filter(uid=>s.mons[uid] && s.boarded?.uid!==uid);
+    const ids = s.presets[index]?.filter(uid=>s.mons[uid] && !(s.board||[]).some(b=>b.uid===uid));
     if (!ids?.length) return false;
     s.team = [...ids];
-    s.box = Object.keys(s.mons).filter(uid=>!ids.includes(uid) && s.boarded?.uid!==uid);
+    s.box = Object.keys(s.mons).filter(uid=>!ids.includes(uid) && !(s.board||[]).some(b=>b.uid===uid));
     recover(s);
     return true;
   }
-  // 全部进化仅按等级门槛触发：幼年期I→II Lv.6、II→成长期 Lv.9、成长期→成熟期 Lv.15、成熟期→完全体 Lv.28。
-  // 完全体进化额外消耗一枚进化芯片（商店购买），不存在交换进化。
+  // 进化只按等级触发：基础形态 Lv.16 → 一阶、一阶 Lv.32 → 最终形态。
+  // 图鉴按真实进化链连线，传说宝可梦（stage 3）没有 next，自然不可进化。
   function evolve(s,uid,target) {
     const mon = s.mons[uid], form = dex[mon?.id];
-    if (!form?.next.includes(target) || mon.level < [6,9,15,28][form.stage] || s.battle) return false;
-    if (form.stage===3) {
-      if (!(s.bag['evolution-chip']>0)) return false;
-      s.bag['evolution-chip']--;
-    }
+    if (!form?.next.includes(target) || s.battle) return false;
+    if (mon.level < [16,32][form.stage]) return false;
     mon.id = target;
     if (!s.seen.includes(target)) s.seen.push(target);
     return true;
@@ -82,8 +154,10 @@ const DigitalGame = (() => {
     const rain = Math.floor(now/hour)%3===2;
     const pool = Object.keys(dex).filter(id => {
       const d = dex[id];
-      if (d.version !== s.route+1 || d.stage < 2) return false;
-      return d.stage === 2 || (d.stage === 3 && (night || rain)) || (d.stage===4 && night && rain);
+      if (d.version !== s.route+1) return false;
+      if (d.stage === 2 && !(night || rain)) return false;   // 最终形态：夜间或雨天
+      if (d.stage === 3 && !(night && rain)) return false;   // 传说：夜间且雨天
+      return true;
     });
     const id = pool[Math.floor(random()*pool.length)];
     const level = 2+s.route*5;
@@ -123,8 +197,7 @@ const DigitalGame = (() => {
       return '遇见 '+s.battle.name;
     }
     const b = s.battle, mon = s.mons[s.team[s.lead]];
-    const affinity = (dex[mon.id].version - (dex[b.id]?.version ?? 1) + 5)%5;
-    const multiplier = affinity===1 ? 1.25 : affinity===4 ? 0.8 : 1;
+    const multiplier = Math.max(0.25, eff(dex[mon.id].types[0], dex[b.id]?.types));
     const hit = Math.round((5+mon.level*2+dex[mon.id].stage)*multiplier*(0.9+random()*0.2));
     b.hp = Math.max(0,b.hp-hit);
     if (b.hp) {
@@ -140,26 +213,30 @@ const DigitalGame = (() => {
     }
     for (const uid of s.team) train(s.mons[uid], b.level*2+2);
     s.coins += b.reward ?? 5+b.level;
+    s.stats=s.stats||{catches:0,wins:0};
+    s.stats.wins++;
     let message = '击败 '+b.name;
     if (b.kind==='boss') {
       s.cleared.push(b.id);
-      message += b.id==='apocalymon'?' · 主线通关':' · 解锁下一地区';
+      message += b.id==='gym9'?' · 联盟通关':' · 获得徽章，解锁下一条路线';
     } else if (b.kind==='activity') {
       s.records[b.activity]=(s.records[b.activity]??0)+1;
     } else {
       s.routeWins[s.route]++;
       // 捕获不限次数、不消耗道具：每次野外胜利都有 65% 机会收容对方。
       // 同种且无收藏价值时自动折算为金币与全队经验，避免仓库被重复精灵占满。
-      if (random()<0.65) {
+      const catchProb = Math.min(0.95, 0.3 + 0.6*(dex[b.id]?.captureRate ?? 190)/255);
+      if (random()<catchProb) {
         const owned=Object.values(s.mons).some(mon=>mon.id===b.id);
         const keepsShiny=b.shiny&&!Object.values(s.mons).some(mon=>mon.id===b.id&&mon.shiny);
         if (owned&&!keepsShiny) {
-          message += ' · 重复的'+b.name+'已转化为 '+convert(s,b)+' 数码币与队伍经验';
+          message += ' · 重复的'+b.name+'已转化为 '+convert(s,b)+' 金币与队伍经验';
         } else {
           const destination = s.team.length<6?'队伍':'仓库';
           const uid = add(s,b.id,b.level,b.shiny);
+          s.stats.catches += uid?1:0;
           message += uid ? ' · 捕获成功，进入'+destination
-                         : ' · 仓库已满（'+boxMax+'），'+b.name+'已转化为 '+convert(s,b)+' 数码币与队伍经验';
+                         : ' · 仓库已满（'+boxMax+'），'+b.name+'已转化为 '+convert(s,b)+' 金币与队伍经验';
         }
       } else message += ' · 捕获失败';
     }
@@ -173,32 +250,61 @@ const DigitalGame = (() => {
     s.bag[id]=(s.bag[id]??0)+item.count;
     return true;
   }
+  // 卖出：商店按半价回收道具。
+  function sell(s,id) {
+    const item=items[id];
+    if (!item || !(s.bag[id]>0)) return false;
+    s.bag[id]--;
+    if (!s.bag[id]) delete s.bag[id];
+    s.coins+=Math.floor(item.price/2);
+    return true;
+  }
   function use(s,id) {
     if (!(s.bag[id]>0) || !s.battle || id!=='ration') return false;
     s.bag[id]--;
     s.battle.allyHp=hp(s.mons[s.team[s.lead]]);
     return true;
   }
-  function board(s,uid,now) {
-    const index=s.box.indexOf(uid);
-    if (index<0 || s.boarded || s.egg) return false;
-    s.box.splice(index,1);
-    s.boarded={uid,lastAt:now};
-    const version=dex[s.mons[uid].id].version;
-    s.egg={id:Object.keys(dex).find(id=>dex[id].version===version&&dex[id].stage===0),at:now+4*hour};
+  // 训练：花费金币给一名队伍/仓库成员做特训，立刻结算一份大额经验。
+  function trainSession(s,uid) {
+    const mon=s.mons[uid];
+    if (!mon || s.battle) return false;
+    const cost=mon.level*4;
+    if (s.coins<cost) return false;
+    s.coins-=cost;
+    train(mon,mon.level*3+6);
     return true;
   }
-  function takeBack(s) {
-    if (!s.boarded) return false;
-    s.box.push(s.boarded.uid);
-    s.boarded=null;
+  // 培育屋：最多寄放 4 只；拥有百变怪时，寄放会产下一枚蛋（同版本幼年体），
+  // 没有百变怪则只提供经验加成。
+  function hasDitto(s) {
+    return [...s.team,...s.box,...(s.board||[]).map(b=>b.uid)]
+      .some(uid=>s.mons[uid]?.id===DITTO);
+  }
+  function board(s,uid,now) {
+    const index=s.box.indexOf(uid);
+    if (index<0 || (s.board||[]).length>=boardMax) return false;
+    s.board=s.board||[];
+    s.board.push({uid,lastAt:now});
+    s.box.splice(index,1);
+    if (!s.egg && hasDitto(s)) {
+      const version=dex[s.mons[uid].id].version;
+      s.egg={id:Object.keys(dex).find(id=>dex[id].version===version&&dex[id].stage===0),at:now+4*hour};
+    }
+    return true;
+  }
+  function takeBack(s,index=0) {
+    const slot=(s.board||[])[index];
+    if (!slot) return false;
+    s.board.splice(index,1);
+    s.box.push(slot.uid);
     return true;
   }
   // 放生：释放仓库中的伙伴，为捕获腾出空间（队伍成员不可放生；
   // 仓库成员不参与当前战斗，因此战斗中也可操作）。
   function release(s,uid) {
     const index=s.box.indexOf(uid);
-    if (index<0 || s.boarded?.uid===uid) return false;
+    if (index<0 || (s.board||[]).some(b=>b.uid===uid)) return false;
     s.box.splice(index,1);
     delete s.mons[uid];
     return true;
@@ -206,17 +312,19 @@ const DigitalGame = (() => {
   function claimEgg(s,now) {
     if (!s.egg || now<s.egg.at) return false;
     if (!add(s,s.egg.id,1)) return false; // 仓库已满时保留孵化结果
+    s.hatched=(s.hatched??0)+1;
     s.egg=null;
     return true;
   }
   function pension(s,now) {
-    if (!s.boarded) return;
-    const elapsed=Math.max(0,Math.min(8*hour,now-s.boarded.lastAt));
-    const ticks=Math.floor(elapsed/(2*60000));
-    if (!ticks) return;
-    const version=dex[s.mons[s.boarded.uid].id].version;
-    for (const mon of Object.values(s.mons)) if (dex[mon.id].version===version) train(mon,ticks);
-    s.boarded.lastAt=now;
+    for (const slot of s.board||[]) {
+      const elapsed=Math.max(0,Math.min(8*hour,now-slot.lastAt));
+      const ticks=Math.floor(elapsed/(2*60000));
+      if (!ticks) continue;
+      const version=dex[s.mons[slot.uid].id].version;
+      for (const mon of Object.values(s.mons)) if (dex[mon.id].version===version) train(mon,ticks);
+      slot.lastAt=now;
+    }
   }
   function catchUp(s,now) {
     const elapsed=Math.max(0,Math.min(8*hour,now-s.savedAt));
@@ -254,10 +362,10 @@ const DigitalGame = (() => {
     const truncated=total>rounds;
     if (!rounds) {
       s.savedAt=Math.max(s.savedAt,now);
-      return {elapsed,rounds:0,credited:0,coins:0,catches:0,dupes:0,bosses:[],truncated};
+      return {elapsed,rounds:0,credited:0,coins:0,catches:0,dupes:0,wins:0,newSeen:[],bosses:[],truncated};
     }
     const random=mulberry32(from);
-    const coins0=s.coins;
+    const coins0=s.coins, wins0=s.stats?.wins||0, seen0=[...s.seen];
     let catches=0, dupes=0, lastBossAt=-999;
     const cleared=[];
     for (let i=0;i<rounds;i++) {
@@ -282,7 +390,8 @@ const DigitalGame = (() => {
     }
     pension(s,now);
     s.savedAt=now;
-    return {elapsed,rounds,credited:rounds*tickMs,coins:s.coins-coins0,catches,dupes,bosses:cleared,truncated};
+    return {elapsed,rounds,credited:rounds*tickMs,coins:s.coins-coins0,catches,dupes,wins:(s.stats?.wins||0)-wins0,
+      newSeen:s.seen.filter(id=>!seen0.includes(id)),bosses:cleared,truncated};
   }
   // 同步结算（测试与不需要进度的场景使用），一次跑完所有回合。
   function offline(s,now) {
@@ -337,10 +446,15 @@ const DigitalGame = (() => {
           !Array.isArray(s.routeWins) || !Array.isArray(s.presets) || !s.bag || !s.records ||
           !Number.isFinite(s.savedAt) || !routes[s.route] ||
           [...s.team,...s.box].some(uid=>!dex[s.mons[uid]?.id])) return null;
+      // 旧存档迁移：boarded（单槽）→ board（4 槽），并补齐统计字段。
+      if (s.boarded) { s.board=[s.boarded]; delete s.boarded; }
+      s.board=Array.isArray(s.board)?s.board.filter(b=>s.mons[b?.uid]):[];
+      s.stats=s.stats||{catches:0,wins:0};
+      s.hatched=s.hatched??0;
       return s;
     } catch { return null; }
   }
-  return {dex,bosses,routes,items,activities,starters,boxMax,maxOffline,tickMs,hp,create,step,recover,queueSwap,preset,evolve,
-    challenge,travel,buy,use,board,takeBack,release,claimEgg,pension,catchUp,offline,offlineSteps,activity,casino,load,serialize:JSON.stringify};
+  return {dex,bosses,routes,items,activities,starters,boxMax,boardMax,maxOffline,tickMs,weather,achievements,achieved,hp,create,step,recover,queueSwap,preset,evolve,
+    challenge,travel,buy,sell,use,trainSession,board,takeBack,release,claimEgg,pension,catchUp,offline,offlineSteps,activity,casino,load,serialize:JSON.stringify};
 })();
 if (typeof module !== 'undefined') module.exports = DigitalGame;

@@ -2,65 +2,236 @@
 <html lang="zh-CN">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>数码图鉴 · 怪兽放置冒险</title>
+<title>Poke'Catch · 宝可梦放置冒险（单机复刻）</title>
 <link rel="stylesheet" href="bundle/app.f8b2479bdb.css">
 <style>
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,sans-serif}main{max-width:980px;margin:auto;padding:24px}h1,h2,p{margin:0 0 12px}h1{font-size:34px}h2{font-size:18px}header{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:18px}.eyebrow{color:var(--yellow);letter-spacing:.18em;font-size:12px;font-weight:700}.muted,small{color:var(--muted)}main .btn[aria-pressed=true]{background:var(--yellow);color:#191b22}button:disabled{opacity:.5;cursor:default}.controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}.moss-scene{position:relative;border-radius:12px;overflow:hidden;min-height:230px;background:linear-gradient(#527e82 0 44%,#547f58 44% 68%,#71985c 68%);display:flex;align-items:end;justify-content:space-around;padding:34px 10px 20px;gap:12px}.moss-scene.river{background:linear-gradient(#4e7692 0 42%,#355e62 42% 62%,#428689 62% 77%,#739d78 77%)}.fighter{position:relative;text-align:center;min-width:115px;padding:6px;background:#14251fd9;border-radius:12px}.art{width:82px;height:73px;display:block;margin:auto;filter:drop-shadow(0 6px 0 #101b1555)}.hit{animation:hit .22s}@keyframes hit{50%{transform:translateY(-8px);opacity:.55}}progress{display:block;width:100%;accent-color:var(--green);height:10px}.moss-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.entry{padding:6px 0;border-bottom:1px solid var(--line)}.log{height:132px;overflow:auto;font-size:14px}#box{max-height:200px;overflow:auto}footer{margin-top:14px;font-size:13px;color:var(--muted)}[hidden]{display:none!important}@media(max-width:590px){main{padding:13px}.moss-grid{grid-template-columns:1fr}.moss-scene{min-height:194px}}
-
-main .topbar{justify-content:space-between;position:static;height:auto}
-.overlay{position:fixed;inset:0;background:#0b0d12cc;display:grid;place-items:center;z-index:50;padding:20px}
-.moss-scene{min-height:250px;background:#527e82 url('assets/bg/scenes/01-prairie-ouverte-710x400.webp') center/cover}
+/* 布局框架：顶栏 + 左侧导航 + 主区（配色/字体复用原站 bundle 的变量与内嵌字体） */
+:root{--sunsun:#ffcb05}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:16px/1.5 var(--font-title,system-ui,sans-serif)}
+#app{display:grid;grid-template:auto 1fr/220px 1fr;height:100vh}
+#pc-top{grid-column:1/3;display:flex;align-items:center;gap:14px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+#pc-top .brand{font-size:24px;font-weight:700;color:var(--yellow);letter-spacing:1px}
+#pc-top .brand b{color:var(--blue-vivid)}
+.chiprow{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center}
+.chip{background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:14px;color:var(--text-2)}
+.chip b{color:var(--gold-soft)}
+.chip.wx{color:var(--text)}
+#pc-side{background:var(--panel);border-right:1px solid var(--line);padding:14px 10px;overflow:auto;display:flex;flex-direction:column;gap:4px}
+#pc-side .grp{margin:10px 4px 4px;font-size:12px;letter-spacing:.16em;color:var(--muted)}
+#pc-side button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 12px;border:0;border-radius:10px;background:transparent;color:var(--text-2);font:inherit;font-size:15px;cursor:pointer}
+#pc-side button:hover{background:var(--panel-2)}
+#pc-side button.active{background:var(--red);color:#fff}
+#pc-side button .ic{width:20px;text-align:center}
+#pc-side .foot{margin-top:auto;font-size:12px;color:var(--muted);padding:10px 6px;line-height:1.6}
+#pc-main{overflow:auto;padding:18px 22px}
+.screen{max-width:980px;margin:auto}
+@media(max-width:820px){#app{grid-template:auto 1fr/64px 1fr}#pc-side button span.l{display:none}#pc-side .grp{visibility:hidden;height:6px}}
+/* 卡片（复刻原站彩色标题栏卡片） */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
+.card-h{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:18px;color:#fff}
+.card-h small{margin-left:auto;font-size:13px;opacity:.85}
+.card-b{padding:14px 16px}
+.h-green{background:linear-gradient(180deg,#3f9e57,#2f7e45)}
+.h-blue{background:linear-gradient(180deg,#3b6fe0,#2c55b0)}
+.h-red{background:linear-gradient(180deg,#e3353b,#a8202a)}
+.h-orange{background:linear-gradient(180deg,#ff7a1a,#c85a0a)}
+.h-purple{background:linear-gradient(180deg,#6c7cff,#4a58c9)}
+.h-gold{background:linear-gradient(180deg,#d9a514,#a97c0a)}
+.h-pink{background:linear-gradient(180deg,#f06ba8,#c14880)}
+/* 通用 */
+.btn{cursor:pointer}
+main .btn[aria-pressed=true]{background:var(--yellow);color:#191b22}
+button:disabled{opacity:.5;cursor:default}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.muted,small{color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.entry{padding:7px 4px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.entry:last-child{border-bottom:0}
+.log{height:140px;overflow:auto;font-size:14px;background:var(--sunken);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.log div{padding:1px 0;border-bottom:1px dashed #ffffff10}
+progress{width:100%;accent-color:var(--green);height:10px}
+.art{width:72px;height:64px;object-fit:contain;image-rendering:pixelated}
+.placeholder{display:grid;place-items:center;font-size:38px;color:var(--yellow)}
+/* 战斗场景 */
+.moss-scene{position:relative;border-radius:12px;overflow:hidden;min-height:250px;background:#527e82 url('assets/bg/scenes/01-prairie-ouverte-710x400.webp') center/cover;display:flex;align-items:end;justify-content:space-around;padding:34px 10px 20px;gap:12px}
 .moss-scene.river{background:#428689 url('assets/bg/scenes/04-berge-riviere-710x400.webp') center/cover}
-.art{object-fit:contain;image-rendering:pixelated}
-.placeholder{display:grid;place-items:center;font-size:42px;color:var(--yellow)}
-main a{color:var(--yellow)}
+.fighter{position:relative;text-align:center;min-width:120px;padding:6px;background:#14251fd9;border-radius:12px;color:#fff}
+.hit{animation:hit .22s}
+/* 徽章墙 */
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.badge{border:1px solid var(--line);border-radius:12px;background:var(--panel-2);padding:10px 6px;text-align:center;font-size:13px;color:var(--muted)}
+.badge .bicon{font-size:26px;filter:grayscale(1);opacity:.4}
+.badge.won{border-color:var(--gold-soft);color:var(--text);background:#2b2a1d}
+.badge.won .bicon{filter:none;opacity:1}
+/* 成就 */
+.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.ach{border:1px solid var(--line);border-radius:12px;background:var(--panel-2);padding:10px 12px;color:var(--muted)}
+.ach b{display:block;color:var(--text-2)}
+.ach.won{border-color:var(--gold-soft);background:#2b2a1d;color:var(--text)}
+.ach.won b{color:var(--gold-soft)}
+/* 商店页签 */
+.subtabs{display:flex;gap:6px;margin-bottom:10px}
+.subtabs button{border:1px solid var(--line);background:var(--panel-2);color:var(--text-2);border-radius:999px;padding:5px 14px;font:inherit;cursor:pointer}
+.subtabs button.active{background:var(--shop,#ff7a1a);color:#fff;border-color:transparent}
+/* 离线「欢迎回来」面板（复刻原站金边结算框） */
+.overlay{position:fixed;inset:0;background:#0b0d12cc;display:grid;place-items:center;z-index:50;padding:20px}
+.welcome{max-width:480px;width:100%;background:var(--panel);border:2px solid var(--gold-soft);border-radius:16px;overflow:hidden;box-shadow:0 0 0 4px #ffcb0522}
+.welcome .wh{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(180deg,#8a6d1c,#6b5212);color:#ffe9a8;font-size:20px}
+.welcome .wh .close{border:0;background:#00000040;color:#ffd9d9;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:15px}
+.welcome .wb{padding:14px 16px}
+.wstats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.wstat{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;color:var(--muted)}
+.wstat b{display:block;font-size:18px;color:var(--text)}
+.wsec{margin-top:12px;font-size:14px;color:var(--muted);display:flex;justify-content:space-between}
+.wmon{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.wmon .new{position:relative;background:var(--panel-2);border:2px solid var(--gold-soft);border-radius:12px;padding:6px}
+.wmon .new i{position:absolute;top:-8px;left:-6px;background:var(--red);color:#fff;font-style:normal;font-size:10px;padding:1px 5px;border-radius:6px}
+.welcome .go{display:block;width:100%;margin-top:14px;border:0;border-radius:10px;background:var(--yellow);color:#191b22;font:inherit;font-weight:700;font-size:17px;padding:10px;cursor:pointer}
+[hidden]{display:none!important}
+@media(max-width:590px){#pc-main{padding:10px}.wstats{grid-template-columns:1fr 1fr}}
 </style>
-<main>
-<header class="topbar"><div><div class="eyebrow">DIGITAL FIELD NOTES</div><h1>数码图鉴</h1><p class="muted">带着伙伴出发，在自动战斗中发现新的数码宝贝。</p></div><div id="summary" class="chip"></div></header>
-<section id="title-screen" class="panel">
-<h2>冒险入口</h2>
-<div class="controls"><button class="btn primary" id="open-save">打开存档文件</button><button class="btn" id="new-game">新建冒险</button></div>
-<input type="file" id="save-file" accept=".json,application/json" hidden>
-<details><summary>玩法帮助</summary><p>选择伙伴后自动探索和战斗。每次胜利都有机会捕获野生数码兽，捕获免费且不限次数。队伍满 6 只后送入仓库；<strong>重复的同种个体自动折算为金币与全队经验</strong>（异色始终优先保留），不会占用仓库。仓库上限 300 只，其中的伙伴可随时“放生”腾出空间。</p><p>进度保存为本地 JSON 文件：新建冒险时会询问保存位置，之后自动续写。关闭页面后伙伴仍会继续探索，重新打开存档时补算离线期间的战斗、捕获与收益。</p></details>
-</section>
-<section id="starter" class="panel" hidden><h2>选择第一只伙伴</h2><div class="controls" id="choices"></div><button class="btn" id="back-title">返回</button></section>
-<div id="game" hidden>
-<nav class="controls" id="tabs" aria-label="游戏页面">
-<button class="btn" data-tab="adventure">冒险</button><button class="btn" data-tab="team">队伍</button>
-<button class="btn" data-tab="dex">图鉴</button><button class="btn" data-tab="shop">商店</button>
-<button class="btn" data-tab="pension">培育屋</button><button class="btn" data-tab="activities">挑战</button>
-</nav>
-<section class="panel" id="adventure" data-page>
-<p id="campaign-complete" hidden><strong>主线通关</strong> · 已击败启示录兽，可以继续探索和收集。</p>
-<div id="routes" class="controls"></div>
-<div id="scene" class="moss-scene"><div id="ally" class="fighter"></div><div id="enemy" class="fighter"></div></div>
-<div class="controls"><button class="btn" id="pause">暂停</button><button class="btn" data-speed="1">×1</button><button class="btn" data-speed="2">×2</button><button class="btn" data-speed="3">×3</button><button class="btn" id="boss">挑战首领</button></div>
-<div id="log" class="log" aria-label="冒险记录"></div>
-</section>
-<section class="panel" id="team" data-page hidden>
-<h2>队伍与仓库</h2><div id="presets" class="controls"></div><p>先选队伍成员，再选仓库成员。替换会在战斗结算后生效。</p>
-<div class="moss-grid"><div id="team-list"></div><div><label>仓库搜索 <input id="box-search"></label> <select id="box-order" aria-label="仓库排序"><option value="recent">最近</option><option value="level">等级</option><option value="name">名字</option></select><p id="box-count" class="muted"></p><div id="box"></div></div></div>
-</section>
-<section class="panel" id="dex" data-page hidden>
-<h2>第一世代图鉴</h2><label>搜索 <input id="dex-search"></label> <select id="dex-filter" aria-label="图鉴状态"><option value="all">全部</option><option value="owned">当前持有</option><option value="seen">曾收录</option><option value="found">已见过</option><option value="missing">未收录</option></select>
-<div id="dex-list"></div>
-</section>
-<section class="panel" id="shop" data-page hidden><h2>商店与背包</h2><div id="shop-list"></div></section>
-<section class="panel" id="pension" data-page hidden><h2>培育屋</h2><div id="pension-list"></div></section>
-<section class="panel" id="activities" data-page hidden><h2>单机挑战</h2><div id="activity-list"></div></section>
-<p id="notice" role="status"></p>
-</div>
-<footer><button class="btn small" id="export-save" type="button">导出存档</button> <span id="saveStatus">进度保存为本地 JSON 文件。</span></footer>
-<div id="offline-overlay" class="overlay" hidden>
-<div class="panel" style="max-width:440px;width:100%">
-<h2>结算离线进度</h2>
-<p id="offline-text" class="muted">正在推演…</p>
-<progress id="offline-bar" max="100" value="0"></progress>
-<p class="muted"><small>离线收益最多累计 72 小时，超出部分不再计算。</small></p>
-</div>
-</div>
-<footer>素材来源：<a href="https://play.pokemonshowdown.com/sprites/digimon/sprites/digimon/">数码宝贝精灵图</a> · <a href="https://pokecatch-online.netlify.app/">Poke’Catch 样式与背景</a></footer>
+<div id="app">
+<header id="pc-top">
+  <div class="brand">Poke'<b>Catch</b></div>
+  <div class="chiprow">
+    <span class="chip" id="top-trainer">🏆 新人训练家</span>
+    <span class="chip" id="top-coins"><b>0 ₽</b></span>
+    <span class="chip" id="top-dex">图鉴 0/151</span>
+    <span class="chip wx" id="top-weather">☀ 白天</span>
+    <span class="chip" id="saveStatus" title="保存状态">未开始</span>
+  </div>
+</header>
+<aside id="pc-side">
+  <div class="grp">冒 险</div>
+  <button data-nav="progress" class="active"><span class="ic">📈</span><span class="l">进度</span></button>
+  <button data-nav="adventure"><span class="ic">⚔️</span><span class="l">冒险</span></button>
+  <div class="grp">收 集</div>
+  <button data-nav="team"><span class="ic">🎒</span><span class="l">队伍/仓库</span></button>
+  <button data-nav="dex"><span class="ic">📕</span><span class="l">图鉴</span></button>
+  <div class="grp">设 施</div>
+  <button data-nav="shop"><span class="ic">🛒</span><span class="l">商店</span></button>
+  <button data-nav="pension"><span class="ic">🥚</span><span class="l">培育屋</span></button>
+  <button data-nav="activities"><span class="ic">🏟️</span><span class="l">挑战</span></button>
+  <button data-nav="achievements"><span class="ic">🏅</span><span class="l">成就</span></button>
+  <div class="foot">单机复刻版 · 离线收益上限 72 小时<br><button class="btn small" id="export-save" type="button">导出存档</button></div>
+</aside>
+<main id="pc-main">
+  <!-- 标题页 -->
+  <section class="screen" id="screen-title">
+    <div class="card"><div class="card-b" style="text-align:center;padding:40px 16px">
+      <div style="font-size:44px;font-weight:700;color:var(--yellow)">Poke'<span style="color:var(--blue-vivid)">Catch</span></div>
+      <p class="muted">选择初始伙伴，队伍会自动战斗、捕获，关都 151 只等你收集。</p>
+      <div class="controls" style="justify-content:center">
+        <button class="btn" id="open-save" style="background:var(--blue);color:#fff">打开存档文件</button>
+        <button class="btn" id="new-game" style="background:var(--red);color:#fff">NEW GAME</button>
+      </div>
+      <input type="file" id="save-file" accept=".json,application/json" hidden>
+      <details style="text-align:left;max-width:560px;margin:14px auto 0"><summary>玩法帮助</summary>
+      <p>选择伙伴后自动探索和战斗。每次胜利都有机会捕获野生宝可梦（捕获免费且不限次数）。队伍满 6 只后送入仓库；<strong>重复的同种个体自动折算为金币与全队经验</strong>（异色始终优先保留）。仓库上限 300 只，可随时放生腾出空间。</p>
+      <p>进度保存为本地 JSON 文件，之后自动续写。最终形态夜间或雨天出没，传说宝可梦要在夜间雨天才现身。关闭页面后队伍仍会继续探索，重新打开存档时补算离线期间的战斗、捕获与收益。</p>
+      </details>
+    </div></div>
+  </section>
+  <!-- 御三家 -->
+  <section class="screen" id="screen-starter" hidden>
+    <div class="card"><div class="card-h h-green">大木博士的三只宝可梦</div>
+    <div class="card-b"><div class="controls" id="choices"></div><button class="btn" id="back-title">返回</button></div></div>
+  </section>
+  <!-- 进度 -->
+  <section class="screen" id="screen-progress" data-page hidden>
+    <div class="card"><div class="card-h h-green">冒险进度 <small id="prog-pct"></small></div>
+      <div class="card-b"><progress id="prog-bar" max="100" value="0"></progress><div class="badges" id="badge-wall"></div></div></div>
+    <div class="card"><div class="card-h h-blue">路线探索 <small>每条路线获胜 3 场可挑战道馆</small></div>
+      <div class="card-b" id="route-list"></div></div>
+    <div class="card"><div class="card-h h-gold">训练家档案</div>
+      <div class="card-b" id="trainer-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px"></div></div>
+  </section>
+  <!-- 冒险 -->
+  <section class="screen" data-page id="screen-adventure" hidden>
+    <p id="campaign-complete" hidden><strong>主线通关</strong> · 已击败冠军青绿，可以继续探索和收集。</p>
+    <div class="card"><div class="card-h h-green">野外遭遇 <small id="route-now"></small></div>
+      <div class="card-b">
+        <div id="scene" class="moss-scene"><div id="ally" class="fighter"></div><div id="enemy" class="fighter"></div></div>
+        <div class="controls"><button class="btn" id="pause">暂停</button><button class="btn" data-speed="1">×1</button><button class="btn" data-speed="2">×2</button><button class="btn" data-speed="3">×3</button><button class="btn" id="boss" style="background:var(--red);color:#fff">挑战道馆</button></div>
+        <div id="log" class="log" aria-label="冒险记录"></div>
+      </div></div>
+    <div class="card"><div class="card-h h-blue">切换路线</div><div class="card-b"><div id="routes" class="controls" style="margin:0"></div></div></div>
+  </section>
+  <!-- 队伍 -->
+  <section class="screen" data-page id="screen-team" hidden>
+    <div class="card"><div class="card-h h-blue">队伍与仓库 <small>先选队伍成员，再选仓库成员完成替换</small></div>
+      <div class="card-b">
+        <div id="presets" class="controls"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="team-grid">
+          <div id="team-list"></div>
+          <div><label>搜索 <input id="box-search"></label> <select id="box-order" aria-label="仓库排序"><option value="recent">最近</option><option value="level">等级</option><option value="name">名字</option></select>
+          <p id="box-count" class="muted"></p><div id="box"></div></div>
+        </div>
+      </div></div>
+  </section>
+  <!-- 图鉴 -->
+  <section class="screen" data-page id="screen-dex" hidden>
+    <div class="card"><div class="card-h h-red">关都图鉴 · 151 只 <small id="dex-count"></small></div>
+      <div class="card-b">
+        <label>搜索 <input id="dex-search"></label> <select id="dex-filter" aria-label="图鉴状态"><option value="all">全部</option><option value="owned">当前持有</option><option value="seen">曾收录</option><option value="found">已见过</option><option value="missing">未收录</option></select>
+        <div id="dex-list"></div>
+      </div></div>
+  </section>
+  <!-- 商店 -->
+  <section class="screen" data-page id="screen-shop" hidden>
+    <div class="card"><div class="card-h h-orange">商店 · 训练所 <small id="shop-wallet"></small></div>
+      <div class="card-b">
+        <div class="subtabs" id="shop-tabs"><button data-shop="buy" class="active">购买</button><button data-shop="sell">卖出</button><button data-shop="train">训练</button></div>
+        <div id="shop-list"></div>
+      </div></div>
+  </section>
+  <!-- 培育屋 -->
+  <section class="screen" data-page id="screen-pension" hidden>
+    <div class="card"><div class="card-h h-pink">培育屋 <small>4 个寄放位 · 需要一只百变怪才能孵蛋</small></div>
+      <div class="card-b" id="pension-list"></div></div>
+  </section>
+  <!-- 挑战 -->
+  <section class="screen" data-page id="screen-activities" hidden>
+    <div class="card"><div class="card-h h-purple">单机挑战 <small>击败主线首领解锁设施</small></div>
+      <div class="card-b" id="activity-list"></div></div>
+  </section>
+  <!-- 成就 -->
+  <section class="screen" data-page id="screen-achievements" hidden>
+    <div class="card"><div class="card-h h-gold">成就 <small id="ach-count"></small></div>
+      <div class="card-b"><div class="ach-grid" id="ach-grid"></div></div></div>
+  </section>
+  <p id="notice" role="status" style="color:var(--gold-soft)"></p>
+  <footer class="muted" style="max-width:980px;margin:8px auto;font-size:13px">素材来源：<a style="color:var(--yellow)" href="https://play.pokemonshowdown.com/sprites/">宝可梦像素图（Pokémon Showdown / PokéSprite）</a> · <a style="color:var(--yellow)" href="https://pokecatch-online.netlify.app/">Poke’Catch 样式参考</a> · 个人非商用复刻项目，宝可梦相关商标归 Nintendo / Game Freak / Creatures 所有。</footer>
 </main>
+</div>
+<div id="offline-overlay" class="overlay" hidden>
+  <div class="welcome">
+    <div class="wh"><span>欢迎回来！</span><span style="font-size:14px" id="offline-away"></span><button class="close" id="offline-close">✕</button></div>
+    <div class="wb">
+      <div class="wstats">
+        <div class="wstat">赢得的战斗<b id="off-wins">0</b></div>
+        <div class="wstat">金钱<b id="off-coins" style="color:var(--gold-soft)">+0 ₽</b></div>
+        <div class="wstat">捕获<b id="off-catches">0</b></div>
+      </div>
+      <div class="wsec"><span>图鉴新增</span><b id="off-newcount" style="color:var(--text)">0</b></div>
+      <div class="wmon" id="off-newmons"></div>
+      <div class="wsec"><span>其他</span><b id="off-extra" style="color:var(--text)"></b></div>
+      <button class="go" id="offline-go">太棒了！</button>
+    </div>
+  </div>
+  <progress id="offline-bar" max="100" value="0" style="display:none"></progress>
+  <p id="offline-text" class="muted" style="display:none">正在推演…</p>
+</div>
+<div id="settling-overlay" class="overlay" hidden>
+  <div class="panel" style="max-width:420px;width:100%">
+    <h2 style="margin-top:0">结算离线进度</h2>
+    <p id="settle-text" class="muted">正在推演…</p>
+    <progress id="settle-bar" max="100" value="0"></progress>
+    <p class="muted"><small>离线收益最多累计 72 小时，超出部分不再计算。</small></p>
+  </div>
+</div>
 <script src="catalog.js"></script>
 <script src="game.js"></script>
 <script src="ui.js"></script>
