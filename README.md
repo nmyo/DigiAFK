@@ -56,6 +56,7 @@
 | [site/bundle/](site/bundle/) | Poke’Catch 原站样式（配色/字体复用） |
 | [tests/game.test.cjs](tests/game.test.cjs) | 内核测试 21 个用例（`node --test tests/game.test.cjs`） |
 | [scripts/deploy_vercel.py](scripts/deploy_vercel.py) | Vercel REST API 一键部署（零依赖） |
+| [scripts/deploy-pages.sh](scripts/deploy-pages.sh) | 同步 `site/` 到 `gh-pages` 分支（GitHub Pages 发布） |
 | [scripts/fetch_sprites.sh](scripts/fetch_sprites.sh) | 补齐/重下 151 张精灵图 |
 | [netlify.toml](netlify.toml) / [vercel.json](vercel.json) | 静态部署配置（发布目录 `site`） |
 
@@ -65,11 +66,14 @@
 cd site && python3 -m http.server 8080   # 打开 http://localhost:8080
 ```
 
-不要用 `file://` 直接双击打开：入口页依赖 Service Worker 接管引导脚本，`file://` 下无法注册。任何静态服务器（含 Vercel/Netlify/Pages）都可以，无需 Node 运行时。
+不要用 `file://` 直接双击打开：浏览器会限制 Service Worker 与本地存储，建议走任意静态服务器（Vercel / Netlify / GitHub Pages）。项目本身零外部依赖，无需 Node 运行时。
 
 ## 部署
 
+- **GitHub Pages**（推荐，国内可直连）：`bash scripts/deploy-pages.sh` → <https://nmyo.github.io/DigiAFK/>
 - **Vercel**：`python3 scripts/deploy_vercel.py --token <TOKEN> --prod`（详见脚本内注释）。
 - **Netlify**：连接仓库即可，`netlify.toml` 已配置发布目录。
+
+> ⚠️ `*.vercel.app` 默认域名在国内被 DNS 污染（解析到 Facebook/Twitter 的 IP）并伴随 SNI 阻断，浏览器会报 `ERR_CONNECTION_RESET`，Vercel 控制台却可以正常打开。这不是项目问题，需要绑定自有域名或改用 GitHub Pages。同理，`*.netlify.app`、`*.pages.dev` 的可用性也随网络环境波动。
 
 > 个人非商用复刻项目。宝可梦相关商标归 Nintendo / Game Freak / Creatures 所有；精灵图来自 Pokémon Showdown / PokéSprite。

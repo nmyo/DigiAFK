@@ -4,8 +4,11 @@
  * 注意：不做跨域重定向，不自动 reload。之前那套「把远端 boot.js 302 到
  * 本地 shell.js」的写法在首次访问时必然抢跑（SW 还没激活，请求已经发出），
  * 远端一旦连不上就直接落到 BOOT_FAIL 的「网络错误」提示上。
+ *
+ * cache.put 必须 await：Response.clone() 的两支 body 共享同一个 tee，
+ * 不等待写入就去读另一支，会让其中一支收到 net::ERR_ABORTED（图片偶发白块）。
  */
-const VERSION = 'pc-cache-v2';
+const VERSION = 'pc-cache-v3';
 const CORE = [
   './',
   './index.html',
@@ -16,12 +19,25 @@ const CORE = [
   './bundle/app.9258c082d1.css',
 ];
 
+async function put(cache, key, res) {
+  try {
+    await cache.put(key, res);
+  } catch (e) {
+    /* 配额满或响应不可缓存：忽略，不影响页面 */
+  }
+}
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(VERSION)
-      .then((cache) => cache.addAll(CORE).catch(() => {}))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(VERSION);
+    await Promise.all(CORE.map(async (url) => {
+      try {
+        const res = await fetch(url, { cache: 'reload' });
+        if (res.ok) await put(cache, url, res);
+      } catch (e) { /* 单个文件失败不阻塞安装 */ }
+    }));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {
@@ -45,10 +61,10 @@ self.addEventListener('fetch', (event) => {
       try {
         const fresh = await fetch(req);
         const cache = await caches.open(VERSION);
-        cache.put('./index.html', fresh.clone());
+        await put(cache, './index.html', fresh.clone());
         return fresh;
       } catch (e) {
-        return (await caches.match(req)) || (await caches.match('./index.html'));
+        return (await caches.match(req)) || (await caches.match('./index.html')) || Response.error();
       }
     })());
     return;
@@ -59,15 +75,18 @@ self.addEventListener('fetch', (event) => {
     const cache = await caches.open(VERSION);
     const hit = await cache.match(req);
     if (hit) {
-      fetch(req).then((res) => { if (res.ok) cache.put(req, res); }).catch(() => {});
+      // 后台静默更新（失败无所谓，绝不影响本次响应）
+      fetch(req)
+        .then((res) => (res.ok ? cache.put(req, res) : undefined))
+        .catch(() => {});
       return hit;
     }
     try {
       const res = await fetch(req);
-      if (res.ok) cache.put(req, res.clone());
+      if (res.ok) await put(cache, req, res.clone());
       return res;
     } catch (e) {
-      return hit || Response.error();
+      return Response.error();
     }
   })());
 });
