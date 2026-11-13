@@ -35,9 +35,9 @@
     '格斗':'#C03028','毒':'#A040A0','地面':'#E0C068','飞行':'#A890F0','超能力':'#F85888','虫':'#A8B820',
     '岩石':'#B8A038','幽灵':'#705898','龙':'#7038F8','恶':'#705848','钢':'#B8B8D0','妖精':'#EE99AC'};
   const typeChip=(t,sm)=>'<span class="type'+(sm?' sm':'')+'" style="--tc:'+(TYPE_COLOR[t]||'#888')+'">'+t+'</span>';
-  const art=(id,shiny,style='')=>{
+  const art=(id,shiny,style='',lazy=false)=>{
     const d=G.dex[id];
-    return d?'<img alt="" '+style+' src="assets/pokemon/'+(shiny?'shiny/':'')+d.no+'.png">':
+    return d?'<img alt="" '+(lazy?'loading="lazy" decoding="async" ':'')+style+' src="assets/pokemon/'+(shiny?'shiny/':'')+d.no+'.png">':
       '<span style="display:grid;place-items:center;color:var(--yellow);font-size:30px" '+style+'>?</span>';
   };
   const name=uid=>G.dex[state.mons[uid].id].name;
@@ -302,7 +302,7 @@
     $('box').innerHTML=ids.map(uid=>{
       const m=s.mons[uid];
       return '<div class="pc-cell'+(selected===uid?' selected':'')+'" data-uid="'+uid+'" title="'+label(uid)+'">'+
-        art(m.id,m.shiny)+'<span class="lvl">Lv.'+m.level+(m.shiny?' ✦':'')+'</span></div>';
+        art(m.id,m.shiny,'',true)+'<span class="lvl">Lv.'+m.level+(m.shiny?' ✦':'')+'</span></div>';
     }).join('')||'<div class="pc-empty">没有符合条件的伙伴。</div>';
   }
   // ---- 图鉴页（原站 dex-grid + dex-cell 结构） ----
@@ -323,7 +323,7 @@
       return '<div class="'+cls+'" data-dex="'+id+'" title="#'+d.no+' '+d.name+'">'+
         (isNew?'<span class="new">NEW</span>':'')+
         '<span class="num">'+String(d.no).padStart(3,'0')+'</span>'+
-        art(id,shiny&&isOwned)+'<div class="nm">'+(seen?d.name:'？？？')+'</div></div>';
+        art(id,shiny&&isOwned,'',true)+'<div class="nm">'+(seen?d.name:'？？？')+'</div></div>';
     }).join('')||'<div class="pc-empty">没有符合条件的记录。</div>';
     // 详情面板
     const info=$('dex-info');
