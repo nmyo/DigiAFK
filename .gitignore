@@ -1,0 +1,16 @@
+/docs/research/reference-pages/
+/ref/
+/.env
+/.env.*
+!/.env.example
+
+# Python
+__pycache__/
+*.pyc
+
+# Vercel
+.vercel/
+
+# 本地存档 / 临时文件
+*.save.json
+digiafk-save.json
