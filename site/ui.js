@@ -153,6 +153,7 @@
     if (page==='pension') pension();
     if (page==='activities') activities();
     if (page==='achievements') achievements();
+    if (page==='settings') settings();
   }
   // ---- 进度页 ----
   function progress() {
@@ -190,8 +191,8 @@
     $('route-now').textContent=G.routes[s.route];
     $('ally').innerHTML=fighter(mon.id,G.dex[mon.id].name,mon.level,b?.allyHp??G.hp(mon),mon.shiny);
     $('enemy').innerHTML=b?fighter(b.id,b.name,b.level,b.hp,b.shiny):'<small>搜寻踪迹中…</small>';
-    $('routes').innerHTML=G.routes.map((r,i)=>btn('route',i,r+' '+s.routeWins[i]+'/3',i>s.cleared.length||i===s.route||!!s.battle)).join('');
-    $('boss').textContent=boss?'挑战 '+boss.name:'主线已通关';
+    $('boss').textContent=boss?'挑战道馆 · Lv.'+boss.level:'主线已通关';
+    if (boss) $('boss').title=boss.name;
     $('boss').disabled=!boss||s.routeWins[s.cleared.length]<3||(b&&b.kind!=='wild');
     $('pause').textContent=paused?'继续':'暂停';
     document.querySelectorAll('[data-speed]').forEach(el=>el.setAttribute('aria-pressed',Number(el.dataset.speed)===s.speed));
@@ -289,6 +290,24 @@
     $('ach-grid').innerHTML=G.achievements.map(a=>
       '<div class="ach'+(won.includes(a.id)?' won':'')+'"><b>'+(won.includes(a.id)?I.medal+' ':I.lock+' ')+a.name+'</b>'+a.desc+'</div>').join('');
   }
+  // ---- 设置页 ----
+  function settings() {
+    $('set-speed').innerHTML=[1,2,3].map(v=>
+      '<button data-set-speed="'+v+'" class="'+(state.speed===v?'active':'')+'">×'+v+'</button>').join('');
+    const theme=document.documentElement.dataset.theme||'dark';
+    $('set-theme').innerHTML=[['dark','深色'],['light','浅色']].map(([v,l])=>
+      '<button data-set-theme="'+v+'" class="'+(theme===v?'active':'')+'">'+l+'</button>').join('');
+    $('set-worker').textContent=worker?'运行中':'备用计时器';
+    $('set-file').textContent=fileHandle
+      ?'已绑定 '+fileHandle.name+'，每次推进自动续写'
+      :'尚未绑定文件，进度仅在本页内存中（可用「导出」备份）';
+  }
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme=theme;
+    try { localStorage.setItem('pc-theme',theme); } catch {}
+  }
+  try { document.documentElement.dataset.theme=localStorage.getItem('pc-theme')||'dark'; } catch {}
+
   function record(text) {
     const row=document.createElement('div');
     row.textContent=text;
@@ -353,6 +372,7 @@
 
   $('choices').innerHTML=G.starters.map(id=>btn('starter',id,art(id)+G.dex[id].name)).join('');
   $('open-save').onclick=openSave;
+  $('open-settings').onclick=()=>{ if (!state) { notice('请先开始或打开存档。'); return; } page='settings'; render(); };
   $('export-save').onclick=download;
   $('save-file').onchange=async event=>{
     const file=event.target.files[0];
@@ -385,6 +405,25 @@
   document.querySelector('#pc-main').addEventListener('click',event=>{
     const button=event.target.closest('button');
     if (!button||button.disabled) return;
+    // 设置页
+    if (button.dataset.setSpeed&&state) {
+      state.speed=Number(button.dataset.setSpeed);
+      notice('速度已设为 ×'+state.speed);
+      persist(true); render(); schedule(); return;
+    }
+    if (button.dataset.setTheme) { applyTheme(button.dataset.setTheme); render(); return; }
+    if (button.id==='set-export') { download(); return; }
+    if (button.id==='set-open') { openSave(); return; }
+    if (button.id==='set-new') { screen='starter'; render(); return; }
+    if (button.id==='set-wipe') {
+      if (confirm('清空当前进度并回到标题页？此操作无法撤销，建议先导出存档。')) {
+        stopLoop();
+        state=null; fileHandle=null; screen='title'; page='adventure'; lastWrite=0;
+        status('进度已清空');
+        render();
+      }
+      return;
+    }
     if (button.dataset.speed&&state) state.speed=Number(button.dataset.speed);
     else if (button.id==='pause') paused=!paused;
     else if (button.id==='boss') {
