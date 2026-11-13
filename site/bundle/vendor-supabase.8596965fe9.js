@@ -53,6 +53,15 @@
       };
     }
     window.supabase = Object.assign({}, real, { createClient:function(){ return makeClient(); } });
+    /* 删除登录相关 UI（原站 JS 零改动，仅适配层隐藏）：
+       .ti-account                标题屏 SIGN IN WITH DISCORD/GOOGLE 按钮
+       .side-disc                 侧栏 Discord 外链
+       .ot-login                  Raid/交换/黑市/好友页「登录后可用」提示
+       [data-act=login*]          设置页「使用 Discord/Google 登录」行 */
+    var st = document.createElement('style');
+    st.id = 'offline-no-login';
+    st.textContent = '.ti-account,.side-disc,.ot-login,[data-act="login"],[data-act="login-google"]{display:none!important}';
+    document.documentElement.appendChild(st);
     console.info('[offline] Supabase -> 本地游客模式（无任何网络调用）');
   }catch(e){ try{ console.warn('[offline] mock 失败', e); }catch(_){} }
 })();
