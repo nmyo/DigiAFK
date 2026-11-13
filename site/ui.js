@@ -11,6 +11,16 @@
   const notice=text=>{$('notice').textContent=text;};
   const btn=(action,value,label,disabled=false)=>
     '<button class="btn small" data-action="'+action+'" data-value="'+value+'"'+(disabled?' disabled':'')+'>'+label+'</button>';
+  const svg=(d)=>'<svg class="ic16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>';
+  const I={
+    sun:svg('<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5 5l1.7 1.7M17.3 17.3 19 19M19 5l-1.7 1.7M6.7 17.3 5 19"/>'),
+    moon:svg('<path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11z"/>'),
+    rain:svg('<path d="M6.5 13a4.5 4.5 0 1 1 .9-8.9A5.5 5.5 0 0 1 18 6.5 3.8 3.8 0 0 1 17.5 14z"/><path d="M8 18v2M12 17.5v2.4M16 18v2"/>'),
+    trophy:svg('<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4a3 3 0 0 0 3 4.5"/><path d="M17 5h3a3 3 0 0 1-3 4.5"/><path d="M12 14v4M8 21h8"/>'),
+    lock:svg('<rect x="5.5" y="10.5" width="13" height="9.5" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>'),
+    egg:svg('<path d="M12 3c4.2 0 7 6.2 7 11a7 7 0 0 1-14 0C5 9.2 7.8 3 12 3z"/>'),
+    medal:svg('<circle cx="12" cy="9" r="5.5"/><path d="M9.2 13.7 7.5 20.5 12 18l4.5 2.5-1.7-6.8"/>')
+  };
   const DEX_TOTAL=Object.keys(G.dex).length;
   const STAGE=['基础','一阶','最终','传说'];
   const art=(id,shiny,size)=>{
@@ -119,7 +129,7 @@
     $('top-coins').innerHTML='<b>'+state.coins.toLocaleString()+' ₽</b>';
     $('top-dex').textContent='图鉴 '+state.seen.length+'/'+DEX_TOTAL;
     const w=G.weather(Date.now());
-    $('top-weather').textContent=(w.night?'🌙 夜间':'☀ 白天')+(w.rain?' · 🌧 雨天':'');
+    $('top-weather').innerHTML=(w.night?I.moon:I.sun)+' '+(w.night?'夜间':'白天')+(w.rain?' · '+I.rain+' 雨天':'');
   }
   function render() {
     // bundle CSS 用 .screen{display:none} / .screen.active 控制显隐
@@ -159,7 +169,7 @@
       const locked=i>s.cleared.length, done=s.routeWins[i]>=3&&i<s.cleared.length;
       return '<div class="entry"><b style="min-width:84px">'+r+'</b>'+
         '<span class="muted">获胜 '+s.routeWins[i]+'/3</span>'+
-        '<span>'+(i===s.route?'<b style="color:var(--gold-soft)">当前位置</b>':locked?'🔒 未解锁':done?'✅ 已通关':'')+'</span>'+
+        '<span>'+(i===s.route?'<b style="color:var(--gold-soft)">当前位置</b>':locked?I.lock+' 未解锁':done?I.trophy+' 已通关':'')+'</span>'+
         btn('route',i,'前往',locked||i===s.route||!!s.battle)+'</div>';
     }).join('');
     const stats=s.stats||{catches:0,wins:0};
@@ -254,8 +264,8 @@
       return '<div class="entry"><b>寄放位 '+(i+1)+'</b>'+(slot?label(slot.uid)+' '+btn('take',i,'取回'):'<span class="muted">空</span>')+'</div>';
     }).join('');
     $('pension-list').innerHTML=slots+
-      '<p class="muted">拥有百变怪时寄放会产下一枚蛋（同版本幼年体）；没有百变怪则只提供经验加成。百变怪：'+(hasDitto()?'✅ 已拥有':'❌ 未拥有（第 8 号路线可遇到）')+'</p>'+
-      (s.egg?'<div class="entry">🥚 孵化器：'+G.dex[s.egg.id].name+' · '+new Date(s.egg.at).toLocaleString()+' '+btn('egg','0','领取',Date.now()<s.egg.at)+'</div>':'')+
+      '<p class="muted">拥有百变怪时寄放会产下一枚蛋（同版本幼年体）；没有百变怪则只提供经验加成。百变怪：'+(hasDitto()?'<b style=\'color:var(--green)\'>已拥有</b>':'<b style=\'color:var(--red)\'>未拥有</b>（第 8 号路线可遇到）')+'</p>'+
+      (s.egg?'<div class="entry">'+I.egg+' 孵化器：'+G.dex[s.egg.id].name+' · '+new Date(s.egg.at).toLocaleString()+' '+btn('egg','0','领取',Date.now()<s.egg.at)+'</div>':'')+
       '<h3 style="margin:10px 0 4px;font-size:16px">从仓库寄放</h3>'+
       (s.box.map(uid=>btn('board',uid,label(uid),(s.board||[]).length>=G.boardMax)).join(' ')||'<p class="muted">仓库为空。</p>');
   }
@@ -277,7 +287,7 @@
     const won=G.achieved(state);
     $('ach-count').textContent='已达成 '+won.length+' / '+G.achievements.length;
     $('ach-grid').innerHTML=G.achievements.map(a=>
-      '<div class="ach'+(won.includes(a.id)?' won':'')+'"><b>'+(won.includes(a.id)?'🏅 ':'🔒 ')+a.name+'</b>'+a.desc+'</div>').join('');
+      '<div class="ach'+(won.includes(a.id)?' won':'')+'"><b>'+(won.includes(a.id)?I.medal+' ':I.lock+' ')+a.name+'</b>'+a.desc+'</div>').join('');
   }
   function record(text) {
     const row=document.createElement('div');
