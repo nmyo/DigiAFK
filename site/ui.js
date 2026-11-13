@@ -2,15 +2,15 @@
 (() => {
   const G=DigitalGame, $=id=>document.getElementById(id);
   const SAVE_NAME='pokecatch-save.json';
-  let state, page='adventure', screen='title', paused=false, timer, selected;
+  let state, page='adventure', screen='title', paused=false, timer, selected=null, dexPick=null;
   let fileHandle=null, lastWrite=0, worker=null, settling=false, shopTab='buy';
   // File System Access API（Chromium 系）：可对同一个 JSON 文件自动续写。
   const hasFS=typeof window.showOpenFilePicker==='function'&&typeof window.showSaveFilePicker==='function';
   let fsUsable=hasFS;
   const status=text=>{$('saveStatus').textContent=text;};
   const notice=text=>{$('notice').textContent=text;};
-  const btn=(action,value,label,disabled=false)=>
-    '<button class="btn small" data-action="'+action+'" data-value="'+value+'"'+(disabled?' disabled':'')+'>'+label+'</button>';
+  const btn=(action,value,label,disabled=false,cls='btn small')=>
+    '<button class="'+cls+'" data-action="'+action+'" data-value="'+value+'"'+(disabled?' disabled':'')+'>'+label+'</button>';
   const svg=(d)=>'<svg class="ic16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>';
   const I={
     sun:svg('<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5 5l1.7 1.7M17.3 17.3 19 19M19 5l-1.7 1.7M6.7 17.3 5 19"/>'),
@@ -23,14 +23,19 @@
   };
   const DEX_TOTAL=Object.keys(G.dex).length;
   const STAGE=['基础','一阶','最终','传说'];
-  const art=(id,shiny,size)=>{
+  // 宝可梦属性配色（原站 .type chip 样式，颜色沿用官方属性色）
+  const TYPE_COLOR={'一般':'#A8A878','火':'#F08030','水':'#6890F0','电':'#F8D030','草':'#78C850','冰':'#98D8D8',
+    '格斗':'#C03028','毒':'#A040A0','地面':'#E0C068','飞行':'#A890F0','超能力':'#F85888','虫':'#A8B820',
+    '岩石':'#B8A038','幽灵':'#705898','龙':'#7038F8','恶':'#705848','钢':'#B8B8D0','妖精':'#EE99AC'};
+  const typeChip=(t,sm)=>'<span class="type'+(sm?' sm':'')+'" style="--tc:'+(TYPE_COLOR[t]||'#888')+'">'+t+'</span>';
+  const art=(id,shiny,style='')=>{
     const d=G.dex[id];
-    const cls='art'+(size?' small':'');
-    return d?'<img class="'+cls+'" alt="" src="assets/pokemon/'+(shiny?'shiny/':'')+d.no+'.png">':
-      '<span class="'+cls+' placeholder" aria-hidden="true">?</span>';
+    return d?'<img alt="" '+style+' src="assets/pokemon/'+(shiny?'shiny/':'')+d.no+'.png">':
+      '<span style="display:grid;place-items:center;color:var(--yellow);font-size:30px" '+style+'>?</span>';
   };
   const name=uid=>G.dex[state.mons[uid].id].name;
   const label=uid=>name(uid)+' · Lv.'+state.mons[uid].level+(state.mons[uid].shiny?' ✦':'');
+  const hpCls=r=>r<=.2?'crit':r<=.5?'low':'';
 
   // ---- JSON 文件存档 ----
   async function writeHandle(handle,text) {
@@ -126,13 +131,16 @@
   }
   function topbar() {
     if (!state) return;
-    $('top-coins').innerHTML='<b>'+state.coins.toLocaleString()+' ₽</b>';
+    $('top-coins').textContent=state.coins.toLocaleString()+' ₽';
     $('top-dex').textContent='图鉴 '+state.seen.length+'/'+DEX_TOTAL;
     const w=G.weather(Date.now());
     $('top-weather').innerHTML=(w.night?I.moon:I.sun)+' '+(w.night?'夜间':'白天')+(w.rain?' · '+I.rain+' 雨天':'');
+    const route=G.routes[state.route]||'';
+    $('side-chapter').textContent=route+' · '+state.routeWins[state.route]+'/3';
   }
+  // 屏幕显隐：原站 CSS 用 .screen.active
   function render() {
-    // bundle CSS 用 .screen{display:none} / .screen.active 控制显隐
+    document.body.classList.toggle('ingame',screen==='game'&&!!state);
     const show=(id,on)=>{const el=$(id);el.hidden=!on;el.classList.toggle('active',on);};
     show('screen-title',screen==='title');
     show('screen-starter',screen==='starter');
@@ -144,7 +152,7 @@
       el.hidden=!on;
       el.classList.toggle('active',on);
     });
-    document.querySelectorAll('#pc-side [data-nav]').forEach(el=>el.classList.toggle('active',el.dataset.nav===page));
+    document.querySelectorAll('#tabs [data-nav]').forEach(el=>el.classList.toggle('active',el.dataset.nav===page));
     if (page==='progress') progress();
     if (page==='adventure') adventure();
     if (page==='team') team();
@@ -155,16 +163,82 @@
     if (page==='achievements') achievements();
     if (page==='settings') settings();
   }
+  // ---- 冒险页（原站 arena 结构：hero / enemy / enemy-hud / team-rail / battle-log / adv-controls） ----
+  function timeline(s) {
+    const nodes=G.bosses.map((b,i)=>{
+      const won=s.cleared.includes(b.id), now=i===s.cleared.length;
+      return (i?'<span class="tl-link'+(won?' on':'')+'"></span>':'')+
+        '<span class="tl-node gym'+(won?' on':'')+(now?' now':'')+'" title="'+b.name+'">'+(i+1)+'</span>';
+    }).join('');
+    $('timeline').innerHTML=nodes;
+    $('tl-count').textContent=s.cleared.length+'/'+G.bosses.length+' 徽章';
+  }
+  function adventure() {
+    const s=state,b=s.battle,mon=s.mons[s.team[s.lead]],boss=G.bosses[s.cleared.length];
+    const arena=$('arena');
+    arena.classList.toggle('river',s.route%2===0);
+    // 我方精灵
+    $('hero').innerHTML=art(mon.id,mon.shiny,'style="width:calc(68px*var(--k,4));height:calc(56px*var(--k,4));object-fit:contain;image-rendering:pixelated"');
+    // 敌方
+    $('enemy').innerHTML=b?'<div class="wrap">'+art(b.id,b.shiny,'style="width:calc(68px*var(--k,4));height:calc(56px*var(--k,4));object-fit:contain;image-rendering:pixelated"')+'</div>':'';
+    // 敌方 HUD（原站样式：米白圆角信息卡）
+    const hud=$('enemy-hud');
+    if (b) {
+      const d=G.dex[b.id], hpPct=Math.max(0,b.hp/G.hp({id:b.id,level:b.level}));
+      hud.hidden=false;
+      hud.innerHTML='<div class="row"><b>'+(b.shiny?'✦ ':'')+b.name+'</b><span>Lv.'+b.level+'</span></div>'+
+        '<div class="hp"><i class="'+hpCls(hpPct)+'" style="width:'+(hpPct*100).toFixed(1)+'%"></i></div>'+
+        '<div class="types">'+(d.types||[]).map(t=>typeChip(t,true)).join('')+'</div>';
+    } else hud.hidden=true;
+    // 队伍栏（左侧行军条）
+    $('team-rail').innerHTML=s.team.map((uid,i)=>{
+      if (!uid) return '';
+      const m=s.mons[uid];
+      return '<div class="tr-row'+(i===s.lead?' lead':'')+'" data-lead="'+i+'"><img alt="" src="assets/pokemon/'+(m.shiny?'shiny/':'')+G.dex[m.id].no+'.png"><small>'+m.level+'</small></div>';
+    }).join('');
+    // 顶部时间线与路线名
+    $('tl-zone').textContent=G.routes[s.route];
+    timeline(s);
+    // 侧栏：当前路线 + 道馆挑战卡
+    $('chapter-btn').textContent=G.routes[s.route]+' · '+s.routeWins[s.route]+'/3';
+    $('event-card').innerHTML=boss
+      ?'<h3>道馆挑战</h3><p>'+boss.name+'<br>推荐等级 Lv.'+boss.level+' · 奖励 '+(boss.reward??5+boss.level)+' ₽</p>'+
+       '<button class="btn primary" id="boss" type="button"'+((s.routeWins[s.cleared.length]<3||(b&&b.kind!=='wild'))?' disabled':'')+'>挑战道馆</button>'
+      :'<h3>主线通关</h3><p>已击败冠军青绿，继续探索和收集吧。</p>';
+    // 速度按钮状态
+    document.querySelectorAll('#speed-btns button').forEach(el=>el.classList.toggle('on',Number(el.dataset.speed)===s.speed));
+    $('pause').textContent=paused?'继续':'暂停';
+    // 新闻条（最近收益摘要）
+    const stats=s.stats||{wins:0,catches:0};
+    $('newsbar').innerHTML='<span>胜场 <b>'+stats.wins+'</b></span><span>捕获 <b>'+stats.catches+'</b></span>'+
+      '<span>重复转化 <b>'+(s.dupes??0)+'</b></span><span>仓库 <b>'+s.box.length+'/'+G.boxMax+'</b></span>'+
+      (s.egg?'<span>'+I.egg+' 孵化中</span>':'');
+    // 右侧路线列表
+    $('zone-panel').innerHTML=G.routes.map((r,i)=>{
+      const locked=i>s.cleared.length, done=s.routeWins[i]>=3&&i<s.cleared.length;
+      return '<div class="entry"><b style="min-width:76px">'+r+'</b>'+
+        '<span class="muted">'+s.routeWins[i]+'/3</span>'+
+        '<span>'+(i===s.route?'<b style="color:var(--gold-soft)">当前位置</b>':locked?I.lock+' 未解锁':done?I.trophy+' 已通关':'')+'</span>'+
+        btn('route',i,'前往',locked||i===s.route||!!s.battle)+'</div>';
+    }).join('');
+    // 右侧背包
+    const bag=Object.entries(G.items).filter(([id])=>s.bag[id]>0);
+    $('bag-panel').innerHTML=(bag.length?bag.map(([id,item])=>
+      '<div class="entry"><b>'+item.name+'</b><span class="muted">×'+s.bag[id]+'</span>'+
+      (id==='ration'?btn('use',id,'使用',!(s.battle)):btn('sell',id,'卖出',false))+'</div>').join(''):'<div class="entry muted">背包是空的，去商店采购吧。</div>');
+  }
   // ---- 进度页 ----
   function progress() {
     const s=state;
     const pct=Math.round(s.cleared.length/G.bosses.length*100);
     $('prog-bar').value=pct;
-    $('prog-pct').textContent='主线 '+s.cleared.length+' / '+G.bosses.length;
+    $('prog-sum').innerHTML='<span>徽章 <b>'+s.cleared.length+'/'+G.bosses.length+'</b></span><span>图鉴 <b>'+
+      s.seen.length+'/'+DEX_TOTAL+'</b></span><span>胜场 <b>'+(s.stats?.wins??0)+'</b></span>';
     const ball='<svg viewBox="0 0 60 60" width="26" height="26" aria-hidden="true"><circle cx="30" cy="30" r="26" fill="#fff" stroke="#1b1b22" stroke-width="4"/><path d="M4 30h18M38 30h18" stroke="#1b1b22" stroke-width="4"/><circle cx="30" cy="30" r="9" fill="#fff" stroke="#1b1b22" stroke-width="4"/><path d="M4 30a26 26 0 0 1 52 0z" fill="#e3353b" stroke="#1b1b22" stroke-width="0"/></svg>';
+    const empty='<svg viewBox="0 0 60 60" width="26" height="26" aria-hidden="true"><circle cx="30" cy="30" r="26" fill="none" stroke="currentColor" stroke-width="4"/><path d="M4 30h52" stroke="currentColor" stroke-width="4"/><circle cx="30" cy="30" r="9" fill="none" stroke="currentColor" stroke-width="4"/></svg>';
     $('badge-wall').innerHTML=G.bosses.map((b,i)=>
       '<div class="badge'+(s.cleared.includes(b.id)?' won':'')+'"><div class="bicon">'+
-      (s.cleared.includes(b.id)?ball:'<svg viewBox="0 0 60 60" width="26" height="26" aria-hidden="true"><circle cx="30" cy="30" r="26" fill="none" stroke="currentColor" stroke-width="4"/><path d="M4 30h52" stroke="currentColor" stroke-width="4"/><circle cx="30" cy="30" r="9" fill="none" stroke="currentColor" stroke-width="4"/></svg>')+
+      (s.cleared.includes(b.id)?ball:empty)+
       '</div>'+b.name.split(' · ')[1]+'</div>').join('');
     $('route-list').innerHTML=G.routes.map((r,i)=>{
       const locked=i>s.cleared.length, done=s.routeWins[i]>=3&&i<s.cleared.length;
@@ -181,81 +255,104 @@
     $('trainer-stats').innerHTML=rows.map(([k,v])=>
       '<div class="wstat">'+k+'<b>'+v+'</b></div>').join('');
   }
-  function fighter(id,title,level,health,shiny) {
-    return art(id,shiny)+'<strong>'+(shiny?'✦ ':'')+title+'</strong><br><small>Lv.'+level+' · HP '+health+'</small>';
+  // ---- 队伍页（原站 team-slots + pc-grid 结构） ----
+  function slotHTML(i,uid) {
+    const s=state;
+    if (!uid) return '<div class="slot empty" data-slot="'+i+'"><span>空位</span><small>从电脑选择宝可梦</small></div>';
+    const m=s.mons[uid], d=G.dex[m.id];
+    return '<div class="slot filled'+(selected===uid?' selected':'')+'" data-uid="'+uid+'" data-slot="'+i+'">'+
+      '<div class="slot-types">'+(d.types||[]).map(t=>typeChip(t,true)).join('')+'</div>'+
+      art(m.id,m.shiny,'style="width:92px;height:80px;object-fit:contain;image-rendering:pixelated"')+
+      '<div class="name">'+d.name+(m.shiny?' ✦':'')+'</div><div class="lv">Lv.'+m.level+' · HP '+G.hp(m)+'</div></div>';
   }
-  function adventure() {
-    const s=state,b=s.battle,mon=s.mons[s.team[s.lead]],boss=G.bosses[s.cleared.length];
-    $('campaign-complete').hidden=!s.cleared.includes('gym9');
-    $('scene').classList.toggle('river',s.route%2===0);
-    $('route-now').textContent=G.routes[s.route];
-    $('ally').innerHTML=fighter(mon.id,G.dex[mon.id].name,mon.level,b?.allyHp??G.hp(mon),mon.shiny);
-    $('enemy').innerHTML=b?fighter(b.id,b.name,b.level,b.hp,b.shiny):'<small>搜寻踪迹中…</small>';
-    $('boss').textContent=boss?'挑战道馆 · Lv.'+boss.level:'主线已通关';
-    if (boss) $('boss').title=boss.name;
-    $('boss').disabled=!boss||s.routeWins[s.cleared.length]<3||(b&&b.kind!=='wild');
-    $('pause').textContent=paused?'继续':'暂停';
-    document.querySelectorAll('[data-speed]').forEach(el=>el.setAttribute('aria-pressed',Number(el.dataset.speed)===s.speed));
-  }
-  function evolutions(uid) {
-    const mon=state.mons[uid];
-    const form=G.dex[mon.id], level=[16,32][form.stage]??Infinity;
-    return form.next.map(id=>btn('evolve',uid+':'+id,
-      G.dex[id].name+' · Lv.'+level,
-      !!state.battle||mon.level<level)).join(' ');
+  function opsHTML(uid) {
+    const s=state;
+    if (!uid) return '<span class="muted">点击队伍成员查看操作；点击仓库成员可与选中的成员交换。</span>';
+    const mon=s.mons[uid], form=G.dex[mon.id], level=[16,32][form.stage]??Infinity;
+    return '<span class="muted">已选中：</span><b>'+label(uid)+'</b>'+
+      form.next.map(id=>btn('evolve',uid+':'+id,'进化 → '+G.dex[id].name+'（Lv.'+level+'）',!!s.battle||mon.level<level)).join('')+
+      btn('train',uid,'特训 '+(mon.level*4)+' ₽',s.coins<mon.level*4||!!s.battle)+
+      btn('select',uid,'设为首发',!!s.battle)+
+      btn('release',uid,'放生',false)+
+      '<button class="btn small ghost" data-action="deselect">取消选择</button>';
   }
   function team() {
     const s=state, q=$('box-search').value.trim().toLowerCase(), order=$('box-order').value;
-    $('box-count').textContent='仓库 '+s.box.length+' / '+G.boxMax+(s.box.length>=G.boxMax?' · 已满，新物种将折算':'')+
-      ' · 重复转化 '+(s.dupes??0)+' 只';
-    $('presets').innerHTML=s.presets.map((ids,i)=>btn('preset',i,(ids?'读取 ':'保存 ')+(i+1),!!s.battle)).join('');
-    $('team-list').innerHTML=Array.from({length:6},(_,i)=>{
-      const uid=s.team[i];
-      return '<div class="entry">'+(uid?art(s.mons[uid].id,s.mons[uid].shiny,true)+btn('select',uid,(selected===uid?'✓ ':'')+label(uid))+' '+evolutions(uid):'空槽')+'</div>';
-    }).join('')+(s.swap?'<p>已排队，等待战斗结算。</p>':'');
+    const avg=Math.round(s.team.filter(Boolean).reduce((a,uid)=>a+s.mons[uid].level,0)/Math.max(1,s.team.filter(Boolean).length));
+    $('team-sum').innerHTML='<span>平均等级 <b>'+(s.team.filter(Boolean).length?avg:'—')+'</b></span>'+
+      '<span>'+(s.swap?'已排队换人，等待战斗结算':'点击队员后可进化 / 特训 / 放生')+'</span>';
+    $('team-list').innerHTML=Array.from({length:6},(_,i)=>slotHTML(i,s.team[i])).join('');
+    $('slot-ops').innerHTML=opsHTML(selected);
+    $('box-count').textContent='仓库 '+s.box.length+' / '+G.boxMax+(s.box.length>=G.boxMax?' · 已满':'');
     const ids=s.box.filter(uid=>name(uid).toLowerCase().includes(q)).reverse();
     if (order==='level') ids.sort((a,b)=>s.mons[b].level-s.mons[a].level);
     if (order==='name') ids.sort((a,b)=>name(a).localeCompare(name(b),'zh-CN'));
-    $('box').innerHTML=ids.map(uid=>'<div class="entry">'+art(s.mons[uid].id,s.mons[uid].shiny,true)+btn('swap',uid,label(uid),!selected)+' '+evolutions(uid)+' '+btn('train',uid,'特训')+' '+btn('release',uid,'放生')+'</div>').join('')||'<p>没有符合条件的伙伴。</p>';
+    $('box').innerHTML=ids.map(uid=>{
+      const m=s.mons[uid];
+      return '<div class="pc-cell'+(selected===uid?' selected':'')+'" data-uid="'+uid+'" title="'+label(uid)+'">'+
+        art(m.id,m.shiny)+'<span class="lvl">Lv.'+m.level+(m.shiny?' ✦':'')+'</span></div>';
+    }).join('')||'<div class="pc-empty">没有符合条件的伙伴。</div>';
   }
+  // ---- 图鉴页（原站 dex-grid + dex-cell 结构） ----
   function dex() {
-    const q=$('dex-search').value.trim().toLowerCase(), mode=$('dex-filter').value;
-    const owned=new Set(Object.values(state.mons).map(mon=>mon.id));
+    const s=state, q=$('dex-search').value.trim().toLowerCase(), mode=$('dex-filter').value;
+    const owned=new Set(Object.values(s.mons).map(mon=>mon.id));
     const rows=Object.entries(G.dex).filter(([id,d])=>
-      (d.name.toLowerCase().includes(q)||id.includes(q))&&
-      (mode==='all'||(mode==='owned'&&owned.has(id))||(mode==='seen'&&state.seen.includes(id))||
-      (mode==='found'&&state.discovered.includes(id))||(mode==='missing'&&!state.seen.includes(id))))
+      (d.name.toLowerCase().includes(q)||id.includes(q)||String(d.no).includes(q))&&
+      (mode==='all'||(mode==='owned'&&owned.has(id))||(mode==='seen'&&s.seen.includes(id))||
+      (mode==='found'&&s.discovered.includes(id))||(mode==='missing'&&!s.seen.includes(id))))
       .sort((a,b)=>a[1].no-b[1].no);
-    $('dex-count').textContent='已收录 '+state.seen.length+' / '+DEX_TOTAL;
-    $('dex-list').innerHTML=rows.map(([id,d])=>'<details class="entry">'+
-      (owned.has(id)?art(id,Object.values(state.mons).find(m=>m.id===id)?.shiny,true):'<span class="art small placeholder">?</span>')+
-      '<summary style="flex:1">'+(d.no<10?'00':d.no<100?'0':'')+d.no+' '+d.name+
-      ' · '+(d.types||[]).join('/')+' · '+
-      (owned.has(id)?'持有':state.seen.includes(id)?'曾收录':state.discovered.includes(id)?'已见过':'未收录')+
-      '</summary><span>'+d.rarity+'</span></details>'+
-      (d.flavor?'<p class="muted" style="font-size:13px;margin:2px 0 8px">'+STAGE[d.stage]+' · '+d.genus+' · 捕获率 '+d.captureRate+' · 进化：'+(d.next.map(next=>G.dex[next].name).join('、')||'无')+'<br>'+d.flavor+'</p>':'')).join('')||'<p>没有符合条件的记录。</p>';
+    $('dex-count').innerHTML='<span>已收录 <b>'+s.seen.length+'/'+DEX_TOTAL+'</b></span><span>持有 <b>'+owned.size+'</b></span>';
+    $('dex-list').innerHTML=rows.map(([id,d])=>{
+      const isOwned=owned.has(id), seen=s.seen.includes(id);
+      const cls='dex-cell'+(isOwned?' caught':seen?' seen':' unknown');
+      const shiny=Object.values(s.mons).find(m=>m.id===id)?.shiny;
+      const isNew=!s.discovered.includes(id)&&seen&&!isOwned;
+      return '<div class="'+cls+'" data-dex="'+id+'" title="#'+d.no+' '+d.name+'">'+
+        (isNew?'<span class="new">NEW</span>':'')+
+        '<span class="num">'+String(d.no).padStart(3,'0')+'</span>'+
+        art(id,shiny&&isOwned)+'<div class="nm">'+(seen?d.name:'？？？')+'</div></div>';
+    }).join('')||'<div class="pc-empty">没有符合条件的记录。</div>';
+    // 详情面板
+    const info=$('dex-info');
+    if (dexPick&&G.dex[dexPick]) {
+      const d=G.dex[dexPick];
+      info.hidden=false;
+      info.innerHTML='<b>#'+String(d.no).padStart(3,'0')+' '+d.name+'</b> · '+STAGE[d.stage]+' · '+d.genus+'<br>'+
+        (d.types||[]).map(t=>typeChip(t)).join(' ')+' · 捕获率 '+d.captureRate+' · '+d.rarity+
+        ' · 进化：'+(d.next.map(next=>G.dex[next].name).join(' → ')||'无')+
+        (d.flavor?'<br><span class="muted">'+d.flavor+'</span>':'');
+    } else info.hidden=true;
   }
-  // ---- 商店：购买 / 卖出 / 训练 三页签 ----
+  // ---- 商店（原站 shop-panel 结构，买/卖/训练分区） ----
   function shop() {
     const s=state;
-    $('shop-wallet').textContent=s.coins.toLocaleString()+' ₽';
+    $('shop-wallet').innerHTML='<b>'+s.coins.toLocaleString()+' ₽</b>';
     document.querySelectorAll('#shop-tabs button').forEach(el=>el.classList.toggle('active',el.dataset.shop===shopTab));
+    const card=(title,sub,price,actions)=>'<div class="shop-card"><b>'+title+'</b><small>'+sub+'</small>'+
+      '<div class="row"><span class="price">'+price+'</span><span>'+actions+'</span></div></div>';
     if (shopTab==='buy') {
-      $('shop-list').innerHTML=Object.entries(G.items).map(([id,item])=>
-        '<div class="entry"><b style="min-width:96px">'+item.name+'</b><span class="muted">'+item.price+' ₽ · 持有 '+(s.bag[id]??0)+'</span>'+
-        btn('buy',id,'购买',s.cleared.length<item.gate||s.coins<item.price)+
-        (id==='ration'?btn('use',id,'使用',!(s.bag[id]>0&&s.battle)):'')+
-        (s.cleared.length<item.gate?'<span class="muted">需击败 '+item.gate+' 位首领</span>':'')+'</div>').join('');
+      $('shop-list').innerHTML='<div class="shop-cat"><h3>道具</h3><div class="shop-grid">'+
+        Object.entries(G.items).map(([id,item])=>
+          card(item.name,'持有 '+(s.bag[id]??0)+' · '+(s.cleared.length<item.gate?'需击败 '+item.gate+' 位首领':'随时可购'),item.price+' ₽',
+            btn('buy',id,'购买',s.cleared.length<item.gate||s.coins<item.price)+
+            (id==='ration'&&s.battle?btn('use',id,'使用',!(s.bag[id]>0)):''))).join('')+
+        '</div></div><div class="shop-cat"><h3>提示</h3><small class="muted">伤药可在冒险页背包中随时使用；重复捕获会自动转化为金币，因此道具主要服务于道馆战。</small></div>';
     } else if (shopTab==='sell') {
-      const owned=Object.entries(G.items).filter(([id])=>s.bag[id]>0);
-      $('shop-list').innerHTML=owned.length?owned.map(([id,item])=>
-        '<div class="entry"><b style="min-width:96px">'+item.name+'</b><span class="muted">持有 '+s.bag[id]+' · 回收价 '+Math.floor(item.price/2)+' ₽</span>'+
-        btn('sell',id,'卖出 1')+'</div>').join(''):'<p class="muted">背包里没有可卖出的道具。</p>';
+      const ownedItems=Object.entries(G.items).filter(([id])=>s.bag[id]>0);
+      $('shop-list').innerHTML=ownedItems.length
+        ?'<div class="shop-cat"><h3>回收（半价）</h3><div class="shop-grid">'+ownedItems.map(([id,item])=>
+            card(item.name,'持有 '+s.bag[id]+' · 回收价 '+Math.floor(item.price/2)+' ₽',Math.floor(item.price/2)+' ₽',btn('sell',id,'卖出 1'))).join('')+'</div></div>'
+        :'<div class="shop-cat"><h3>回收（半价）</h3><small class="muted">背包里没有可卖出的道具。</small></div>';
     } else {
       const cost=uid=>s.mons[uid].level*4;
-      $('shop-list').innerHTML='<p class="muted">特训立刻结算一份大额经验，费用 = 等级 × 4 ₽。</p>'+
-        s.team.filter(Boolean).map(uid=>'<div class="entry">'+art(s.mons[uid].id,s.mons[uid].shiny,true)+'<b>队伍</b> '+label(uid)+' '+btn('train',uid,'特训 '+cost(uid)+' ₽',s.coins<cost(uid)||!!s.battle)+'</div>').join('')+
-        s.box.map(uid=>'<div class="entry">'+art(s.mons[uid].id,s.mons[uid].shiny,true)+'<b>仓库</b> '+label(uid)+' '+btn('train',uid,'特训 '+cost(uid)+' ₽',s.coins<cost(uid)||!!s.battle)+'</div>').join('');
+      const mon=(uid,where)=>{const m=s.mons[uid];
+        return '<div class="shop-card">'+art(m.id,m.shiny,'style="width:64px;height:56px;object-fit:contain;image-rendering:pixelated;align-self:center"')+
+        '<b>'+G.dex[m.id].name+(m.shiny?' ✦':'')+'</b><small>'+where+' · Lv.'+m.level+'</small>'+
+        '<div class="row"><span class="price">'+cost(uid)+' ₽</span>'+btn('train',uid,'特训',s.coins<cost(uid)||!!s.battle)+'</div></div>';};
+      $('shop-list').innerHTML='<div class="shop-cat"><h3>特训（立刻结算一份大额经验，费用 = 等级 × 4）</h3><div class="shop-grid">'+
+        s.team.filter(Boolean).map(uid=>mon(uid,'队伍')).join('')+
+        s.box.map(uid=>mon(uid,'仓库')).join('')+'</div></div>';
     }
   }
   function pension() {
@@ -293,10 +390,10 @@
   // ---- 设置页 ----
   function settings() {
     $('set-speed').innerHTML=[1,2,3].map(v=>
-      '<button data-set-speed="'+v+'" class="'+(state.speed===v?'active':'')+'">×'+v+'</button>').join('');
+      '<button data-set-speed="'+v+'" class="'+(state.speed===v?'on':'')+'">×'+v+'</button>').join('');
     const theme=document.documentElement.dataset.theme||'dark';
     $('set-theme').innerHTML=[['dark','深色'],['light','浅色']].map(([v,l])=>
-      '<button data-set-theme="'+v+'" class="'+(theme===v?'active':'')+'">'+l+'</button>').join('');
+      '<button data-set-theme="'+v+'" class="'+(theme===v?'on':'')+'">'+l+'</button>').join('');
     $('set-worker').textContent=worker?'运行中':'备用计时器';
     $('set-file').textContent=fileHandle
       ?'已绑定 '+fileHandle.name+'，每次推进自动续写'
@@ -337,7 +434,7 @@
   }
   async function enter(resume) {
     screen='game';
-    page='progress';
+    page='adventure';
     paused=false;
     selected=null;
     const now=Date.now();
@@ -359,18 +456,19 @@
     $('offline-away').textContent='离开了 '+(minutes>=120?Math.round(minutes/60)+' 小时':(minutes||1)+' 分钟')+(report.truncated?'（按 72 小时上限结算）':'');
     $('off-wins').textContent=report.wins??0;
     $('off-coins').textContent='+'+report.coins.toLocaleString()+' ₽';
-    $('off-catches').textContent=report.catches;
+    $('off-loss').textContent='—';
     $('off-newcount').textContent=report.newSeen?.length??0;
-    $('off-newmons').innerHTML=(report.newSeen||[]).map(id=>
+    $('off-newmons').innerHTML=(report.newSeen||[]).slice(0,8).map(id=>
       '<div class="new"><i>NEW</i>'+art(id,false)+'</div>').join('');
     const extras=[];
+    if (report.catches) extras.push('捕获 '+report.catches+' 只');
     if (report.dupes) extras.push('重复转化 '+report.dupes+' 只');
     if (report.bosses?.length) extras.push('击败 '+report.bosses.join('、'));
-    $('off-extra').textContent=extras.join(' · ');
+    $('off-extra').textContent=extras.join(' · ')||'—';
     $('offline-overlay').hidden=false;
   }
 
-  $('choices').innerHTML=G.starters.map(id=>btn('starter',id,art(id)+G.dex[id].name)).join('');
+  $('choices').innerHTML=G.starters.map(id=>btn('starter',id,art(id)+'<span style="margin-left:6px">'+G.dex[id].name+'</span>')).join('');
   $('open-save').onclick=openSave;
   $('open-settings').onclick=()=>{ if (!state) { notice('请先开始或打开存档。'); return; } page='settings'; render(); };
   $('export-save').onclick=download;
@@ -387,8 +485,9 @@
   $('dex-filter').onchange=dex;
   $('offline-go').onclick=()=>{$('offline-overlay').hidden=true;};
   $('offline-close').onclick=()=>{$('offline-overlay').hidden=true;};
+  $('side-chapter').onclick=()=>{ if (state&&screen==='game') { page='adventure'; render(); } };
   // 左侧导航
-  document.getElementById('pc-side').addEventListener('click',event=>{
+  document.getElementById('tabs').addEventListener('click',event=>{
     const el=event.target.closest('[data-nav]');
     if (!el||!state) return;
     page=el.dataset.nav;
@@ -402,7 +501,7 @@
     shopTab=el.dataset.shop;
     shop();
   });
-  document.querySelector('#pc-main').addEventListener('click',event=>{
+  document.querySelector('main').addEventListener('click',event=>{
     const button=event.target.closest('button');
     if (!button||button.disabled) return;
     // 设置页
@@ -434,6 +533,7 @@
       let ok=true;
       if (action==='route') ok=G.travel(state,Number(value));
       else if (action==='select') selected=value;
+      else if (action==='deselect') selected=null;
       else if (action==='swap') {
         ok=G.queueSwap(state,selected,value);
         if (ok&&!state.battle) G.recover(state);
@@ -464,6 +564,30 @@
     persist(true);
     render();
     schedule();
+  });
+  // 队伍/图鉴的点击式选择（pc-cell、slot、dex-cell）
+  document.querySelector('main').addEventListener('click',event=>{
+    const cell=event.target.closest('.pc-cell[data-uid]');
+    if (cell) {
+      const uid=cell.dataset.uid;
+      if (selected&&selected!==uid) {
+        const ok=G.queueSwap(state,selected,uid);
+        if (ok&&!state.battle) G.recover(state);
+        selected=null;
+        notice(ok?'':'换队条件未满足。');
+        persist(true); render(); schedule();
+      } else {
+        selected=selected===uid?null:uid;
+        team();
+      }
+      return;
+    }
+    const slot=event.target.closest('.slot.filled[data-uid]');
+    if (slot) { selected=selected===slot.dataset.uid?null:slot.dataset.uid; team(); return; }
+    const dexCell=event.target.closest('.dex-cell[data-dex]');
+    if (dexCell) { dexPick=dexPick===dexCell.dataset.dex?null:dexCell.dataset.dex; dex(); return; }
+    const lead=event.target.closest('.tr-row[data-lead]');
+    if (lead) { state.lead=Number(lead.dataset.lead); render(); }
   });
   $('choices').addEventListener('click',async event=>{
     const id=event.target.closest('button')?.dataset.value;
