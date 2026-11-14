@@ -9,7 +9,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     var style = document.createElement('style');
-    style.textContent = '#save-btn,.opt-modal [data-p="community"],.opt-modal .op-community,.ti-how-btn,.ti-cl-btn,.ti-row{display:none!important}';
+    style.textContent = '#save-btn,#guide-btn,.opt-modal [data-p="community"],.opt-modal .op-community,.ti-how-btn,.ti-cl-btn,.ti-row{display:none!important}';
     document.head.appendChild(style);
 
     function setup() {
