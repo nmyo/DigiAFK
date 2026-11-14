@@ -87,6 +87,51 @@ const mock = `
     st.id = 'offline-no-login';
     st.textContent = '.ti-account,.side-disc,.ot-login,[data-act="login"],[data-act="login-google"]{display:none!important}';
     document.documentElement.appendChild(st);
+
+    /* 热更新：轮询 version.json，发现新构建后提示刷新。
+       标题页（无进度风险）直接自动刷新，游戏内则显示角标由玩家点击。 */
+    (function () {
+      var cur = null, shown = false;
+      function banner() {
+        if (shown || !document.body || document.getElementById('pc-update')) return;
+        shown = true;
+        var d = document.createElement('button');
+        d.id = 'pc-update';
+        d.type = 'button';
+        d.textContent = '发现新版本 · 点击更新';
+        d.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:99999;padding:10px 16px;border:0;border-radius:999px;' +
+          'cursor:pointer;font:600 13px/1 system-ui,-apple-system,sans-serif;color:#fff;background:#e4352b;' +
+          'box-shadow:0 6px 20px rgba(0,0,0,.35)';
+        d.onclick = function () { location.reload(); };
+        document.body.appendChild(d);
+      }
+      function check() {
+        fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (j) {
+            if (!j || !j.v) return;
+            if (!cur) { cur = j.v; return; }
+            if (j.v === cur) return;
+            cur = j.v;
+            // 标题页/未开局：直接刷新；游戏中：提示
+            if (document.body && document.body.classList.contains('titled')) location.reload();
+            else banner();
+          })
+          .catch(function () {});
+      }
+      function start() { check(); setInterval(check, 60000); }
+      window.__pcHot = { check: check, state: function () { return cur; } };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+      else start();
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) check(); });
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', function (e) {
+          if (e.data && e.data.type === 'pc-updated' && document.body && document.body.classList.contains('titled')) {
+            location.reload();
+          }
+        });
+      }
+    })();
     console.info('[offline] Supabase -> 本地游客模式（无任何网络调用）');
   }catch(e){ try{ console.warn('[offline] mock 失败', e); }catch(_){} }
 })();
@@ -100,3 +145,10 @@ for (const f of fs.readdirSync(path.join(MIRROR, 'bundle'))) {
   }
 }
 console.log('构建完成');
+
+// 本地开发用的版本文件（部署时 scripts/deploy-pages.sh 会覆盖为唯一构建号）
+const verPath = path.join(SITE, 'version.json');
+if (!fs.existsSync(verPath)) {
+  fs.writeFileSync(verPath, JSON.stringify({ v: 'dev' }) + '\n');
+  console.log('version.json: 已生成（dev）');
+}

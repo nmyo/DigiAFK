@@ -11,6 +11,10 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 cp -r site/. "$TMP/"
+# 热更新版本号：每次部署唯一，页面轮询 version.json 即可感知新构建
+BUILD="$(date +%s)-$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo dev)"
+printf '{"v":"%s","at":"%s"}\n' "$BUILD" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$TMP/version.json"
+echo "build id: $BUILD"
 cd "$TMP"
 
 git init -q -b gh-pages
