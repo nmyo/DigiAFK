@@ -60,8 +60,9 @@
        [data-act=login*]          设置页「使用 Discord/Google 登录」行 */
     var st = document.createElement('style');
     st.id = 'offline-no-login';
-    st.textContent = '.ti-account,.side-disc,.ot-login,[data-act="login"],[data-act="login-google"]{display:none!important}';
+    st.textContent = '.ti-account,.side-disc,.ot-login,[data-act="login"],[data-act="login-google"],.opt-modal [data-p="news"],#tabs [data-screen="achievements"],#tabs [data-screen="friends"],#tabs [data-screen="raid"],.tr-face>.fr,.tr-face>.fr-ring{display:none!important}.tr-face[data-frame]:not([data-frame="base"]){--ring:none!important;--inner:none!important;box-shadow:none!important}';
     document.documentElement.appendChild(st);
+    st.textContent += '.tc-edit,.tc-new{display:none!important}.tc-modal .tc-portrait{pointer-events:none;cursor:default}';
 
     /* 热更新：轮询 version.json，发现新构建后提示刷新。
        标题页（无进度风险）直接自动刷新，游戏内则显示角标由玩家点击。 */
