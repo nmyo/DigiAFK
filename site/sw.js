@@ -8,7 +8,7 @@
  * - version.json 每次请求都走网络（no-store），供页面轮询判断是否有新构建。
  * - 新 SW 接管后向页面广播 pc-updated 消息。
  */
-const VERSION = 'pc-cache-v9';
+const VERSION = 'pc-cache-v10';
 const CORE = [
   './',
   './index.html',
