@@ -1,0 +1,57 @@
+const assert = require('node:assert/strict');
+async function main() {
+  const tab = await (await fetch('http://127.0.0.1:9222/json/new?http://127.0.0.1:8765/', { method: 'PUT' })).json();
+  const socket = new WebSocket(tab.webSocketDebuggerUrl);
+  await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
+  let id = 0;
+  const pending = new Map();
+  socket.onmessage = ({ data }) => { const msg = JSON.parse(data); if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); } };
+  const send = (method, params = {}) => new Promise((resolve) => { const n = ++id; pending.set(n, resolve); socket.send(JSON.stringify({ id: n, method, params })); });
+  await new Promise((resolve) => setTimeout(resolve, 8000));
+  const result = await send('Runtime.evaluate', { returnByValue: true, expression: `(() => {
+    const battle = document.querySelector('#battle-log');
+    const feed = document.querySelector('#newsbar .news-feed');
+    const button = document.querySelector('#save-btn');
+    const saved = localStorage.getItem('gachamon-save-v1');
+    battle.textContent = 'smoke-test battle';
+    return { eco: JSON.parse(localStorage.getItem('pokecatch-perf')), button: getComputedStyle(button).display, saved: !!saved, feed: !!feed };
+  })()` });
+  const state = result.result.result.value;
+  assert.equal(state.eco.calm, true);
+  assert.equal(state.button, 'none');
+  assert.equal(state.feed, true);
+  const nav = await send('Runtime.evaluate', { returnByValue: true, expression: `({parent:document.querySelector('[data-screen="trade"]').parentElement.id, social:document.querySelector('[data-grp="social"]').hidden})` });
+  assert.equal(nav.result.result.value.parent, 'tabs');
+  assert.equal(nav.result.result.value.social, true);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const log = await send('Runtime.evaluate', { returnByValue: true, expression: `document.querySelector('#newsbar .news-feed').textContent` });
+  assert.match(log.result.result.value, /smoke-test battle/);
+  await send('Runtime.evaluate', { expression: `document.querySelector('#battle-log').textContent = 'smoke-test second battle'` });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const count = await send('Runtime.evaluate', { returnByValue: true, expression: `document.querySelectorAll('#newsbar .news-feed .news-line').length` });
+  assert.ok(count.result.result.value <= 40);
+  for (let i = 0; i < 45; i++) {
+    await send('Runtime.evaluate', { expression: `document.querySelector('#battle-log').textContent = 'battle ${i}'` });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  const history = await send('Runtime.evaluate', { returnByValue: true, expression: `Array.from(document.querySelectorAll('#newsbar .news-feed .news-line'), x => x.textContent)` });
+  assert.equal(history.result.result.value.length, 40);
+  assert.equal(history.result.result.value[39], 'battle 44');
+  await send('Runtime.evaluate', { expression: `document.querySelector('.ti-go')?.click()` });
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await send('Runtime.evaluate', { expression: `document.querySelector('.lab-skip')?.click()` });
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await send('Runtime.evaluate', { expression: `document.querySelector('.lab-av[data-k="leaf"]')?.click(); document.querySelector('.lab-ok')?.click()` });
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  await send('Runtime.evaluate', { expression: `document.querySelector('.lab-name')?.requestSubmit()` });
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  const save = await send('Runtime.evaluate', { returnByValue: true, expression: `(() => {const s=localStorage.getItem('gachamon-save-v1');return s && JSON.parse(s).trainer?.sprite})()` });
+  assert.equal(save.result.result.value, 'leaf', 'new game saves selected trainer');
+  await send('Page.reload');
+  await new Promise((resolve) => setTimeout(resolve, 6000));
+  const restored = await send('Runtime.evaluate', { returnByValue: true, expression: `JSON.parse(localStorage.getItem('gachamon-save-v1')).trainer.sprite` });
+  assert.equal(restored.result.result.value, 'leaf', 'trainer selection survives reload');
+  console.log('Browser smoke test passed:', state, 'battle log updated');
+  socket.close();
+}
+main().catch((err) => { console.error(err); process.exitCode = 1; });
