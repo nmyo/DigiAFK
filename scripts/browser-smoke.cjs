@@ -23,6 +23,11 @@ async function main() {
   const nav = await send('Runtime.evaluate', { returnByValue: true, expression: `({parent:document.querySelector('[data-screen="trade"]').parentElement.id, social:document.querySelector('[data-grp="social"]').hidden})` });
   assert.equal(nav.result.result.value.parent, 'tabs');
   assert.equal(nav.result.result.value.social, true);
+  await send('Runtime.evaluate', { expression: `document.querySelector('#guide-btn').click()` });
+  const guide = await send('Runtime.evaluate', { returnByValue: true, expression: `document.querySelector('.offline-guide')?.textContent` });
+  assert.match(guide.result.result.value, /46/);
+  assert.match(guide.result.result.value, /自动保存/);
+  await send('Runtime.evaluate', { expression: `document.querySelector('.offline-guide').close()` });
   await new Promise((resolve) => setTimeout(resolve, 100));
   const log = await send('Runtime.evaluate', { returnByValue: true, expression: `document.querySelector('#newsbar .news-feed').textContent` });
   assert.match(log.result.result.value, /smoke-test battle/);
