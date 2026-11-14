@@ -147,6 +147,7 @@ for (const f of fs.readdirSync(path.join(MIRROR, 'bundle'))) {
     console.log('vendor:', f, '→ 已追加游客 mock');
   }
 }
+require('./patch-link-evolutions.cjs');
 console.log('构建完成');
 
 // 本地开发用的版本文件（部署时 scripts/deploy-pages.sh 会覆盖为唯一构建号）
