@@ -17,6 +17,10 @@ async function main() {
     return { eco: JSON.parse(localStorage.getItem('pokecatch-perf')), button: getComputedStyle(button).display, saved: !!saved, feed: !!feed };
   })()` });
   const state = result.result.result.value;
+  const titleControls = await send('Runtime.evaluate', { returnByValue: true, expression: `(() => {const a=document.querySelector('.ti-how-btn'),b=document.querySelector('.ti-cl-btn'),c=document.querySelector('.ti-go');return {how:a && getComputedStyle(a).display,changes:b && getComputedStyle(b).display,start:c && getComputedStyle(c).display}})()` });
+  assert.equal(titleControls.result.result.value.how, 'none');
+  assert.equal(titleControls.result.result.value.changes, 'none');
+  assert.notEqual(titleControls.result.result.value.start, 'none');
   assert.equal(state.eco.calm, true);
   assert.equal(state.button, 'none');
   assert.equal(state.feed, true);
