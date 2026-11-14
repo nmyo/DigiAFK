@@ -80,6 +80,10 @@
         d.onclick = function () { location.reload(); };
         document.body.appendChild(d);
       }
+      function atTitle() {
+        var f = document.querySelector('.title-fx');
+        return !!(f && (f.checkVisibility ? f.checkVisibility() : f.offsetParent));
+      }
       function check() {
         fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
           .then(function (r) { return r.ok ? r.json() : null; })
@@ -89,7 +93,7 @@
             if (j.v === cur) return;
             cur = j.v;
             // 标题页/未开局：直接刷新；游戏中：提示
-            if (document.body && document.body.classList.contains('titled')) location.reload();
+            if (atTitle()) location.reload();
             else banner();
           })
           .catch(function () {});
@@ -101,9 +105,7 @@
       document.addEventListener('visibilitychange', function () { if (!document.hidden) check(); });
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', function (e) {
-          if (e.data && e.data.type === 'pc-updated' && document.body && document.body.classList.contains('titled')) {
-            location.reload();
-          }
+          if (e.data && e.data.type === 'pc-updated' && atTitle()) location.reload();
         });
       }
     })();
