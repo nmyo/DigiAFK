@@ -2,7 +2,8 @@
 # 补齐 1..151 的普通与异色精灵图；已存在且非空的跳过。
 set -u
 DIR="${1:?目标目录}"
-BASE="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon"
+# 使用游戏原站的 68×56 精灵图；PokeAPI 的 96×96 图片会破坏定位。
+BASE="https://pokecatch-online.pages.dev/assets/pokemon"
 mkdir -p "$DIR" "$DIR/shiny"
 
 fetch() {
