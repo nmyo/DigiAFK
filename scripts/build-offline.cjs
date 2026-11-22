@@ -148,6 +148,7 @@ for (const f of fs.readdirSync(path.join(MIRROR, 'bundle'))) {
   }
 }
 require('./patch-link-evolutions.cjs');
+require('./patch-legendary-difficulty.cjs').patchBundle();
 console.log('构建完成');
 
 // 本地开发用的版本文件（部署时 scripts/deploy-pages.sh 会覆盖为唯一构建号）
