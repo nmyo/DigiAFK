@@ -79,6 +79,8 @@ function patch() {
     if (start < 0 || end < 0) throw new Error('Unexpected cinematics module');
     app = app.slice(0, start) + app.slice(end);
   }
+  const dexReplay = 'if(I.S.dex[K]&&t.Screens.adventure?.hasIntro(K)){const ge=g(`<button class="btn small outline dc-intro intro-btn"><i class="intro-ic">▶</i>${e("Revoir son apparition")}</button>`);ge.onclick=()=>{t.Sfx.click(),t.Screens.adventure.replayIntro(K,bt(K,!1))},a(".dexcard",Qt).appendChild(ge)}';
+  app = app.replace(dexReplay, '');
   // No mandatory callers depend on the hidden link; remaining SVG consumers use optional fallback.
   boot = boot.replace(/^        <a class="side-disc"[^\n]*\n/m, '');
   app = removeBlock(app, 't.Changelog=function(){', '}(),t.News=', 'guide and changelog modules');

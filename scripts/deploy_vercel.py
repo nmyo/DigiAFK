@@ -37,13 +37,19 @@ def collect_files():
     files = []
     for name in INCLUDE_FILES:
         path = ROOT / name
+        if path.is_symlink():
+            raise ValueError(f"Refusing to deploy symlink: {path}")
         if path.is_file():
             files.append(path)
     for name in INCLUDE_DIRS:
         base = ROOT / name
+        if base.is_symlink():
+            raise ValueError(f"Refusing to deploy symlink: {base}")
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*")):
+            if path.is_symlink():
+                raise ValueError(f"Refusing to deploy symlink: {path}")
             if not path.is_file():
                 continue
             rel_parts = path.relative_to(ROOT).parts

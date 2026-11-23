@@ -17,7 +17,7 @@ assert.doesNotMatch(boot, /data-grp="social"|data-screen="achievements"|id="scre
 assert.doesNotMatch(app, /data-ach|t\.Screens\.achievements|t\.Guide=function|t\.Changelog=function|data-screen="(?:trade|friends)"'\),/);
 assert.doesNotMatch(boot, /data-screen="cinematics"|id="screen-cinematics"/);
 assert.doesNotMatch(boot, /class="side-disc"/);
-assert.doesNotMatch(app, /t\.Screens\.cinematics=|replayCinematic\(button\.dataset\.cine\)/);
+assert.doesNotMatch(app, /t\.Screens\.cinematics=|replayCinematic\(button\.dataset\.cine\)|dc-intro intro-btn/);
 assert.match(app, /function ln\(o,z,ke\)/);
 patch();
 assert.equal(fs.readFileSync(bootPath, 'utf8'), boot);

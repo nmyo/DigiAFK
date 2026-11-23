@@ -47,6 +47,7 @@ require('./patch-team-interaction.cjs').patchBundle();
 require('./patch-legendary-view.cjs').patchBundle();
 require('./patch-wild-weather.cjs').patchBundle();
 require('./patch-dex-encounters.cjs');
+require('./patch-region-dex-rewards.cjs');
 require('./patch-encounter-panel.cjs').patchBundle();
 require('./patch-detail-evolution-region.cjs');
 require('./patch-unown-translation.cjs').patchBundle();

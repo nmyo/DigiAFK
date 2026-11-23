@@ -3,6 +3,15 @@
     (function () {
       var build = document.querySelector('meta[name="pc-build"]');
       var cur = build ? build.content : null, shown = false;
+      var controlledAtLoad = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+      function refreshOnce(version) {
+        try {
+          var key = 'pc-update-attempt';
+          if (sessionStorage.getItem(key) === version) return banner();
+          sessionStorage.setItem(key, version);
+          location.reload();
+        } catch (e) { banner(); }
+      }
       function banner() {
         if (shown || !document.body || document.getElementById('pc-update')) return;
         shown = true;
@@ -30,7 +39,7 @@
             if (j.v === cur) return;
             cur = j.v;
             // 标题页/未开局：直接刷新；游戏中：提示
-            if (atTitle()) location.reload();
+            if (atTitle()) refreshOnce(j.v);
             else banner();
           })
           .catch(function () {});
@@ -42,9 +51,8 @@
       document.addEventListener('visibilitychange', function () { if (!document.hidden) check(); });
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', function (e) {
-          if (!e.data || e.data.type !== 'pc-updated') return;
-          if (atTitle()) location.reload();
-          else banner();
+          if (!e.data || e.data.type !== 'pc-updated' || !controlledAtLoad) return;
+          check();
         });
       }
     })();

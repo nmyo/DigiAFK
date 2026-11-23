@@ -18,7 +18,7 @@ function run(state, kind = 'trainer', remaining = false, party = [{uid:1,hp:2,ma
   const adv = {chapter:0,node:0,badges:[],battle,...state};
   const f = {S:{stats:{wins:0},buddy:null},teamMons:()=>party,maxHp:m=>m.max,curHp:m=>m.hp,levelXp:()=>1,capped:()=>true,gainXp:()=>({}),buddyKo:()=>null,earn:()=>{},behindMoney:()=>1,buffMult:()=>1,tally:()=>{},regionDone:()=>false};
   let hpAtAdvance;
-  const ctx = {I:()=>adv,f,g:{CHAPTERS:[{league:!!state.story}],regionOf:()=>({key:'kanto'})},a:{XP_WINS_PER_LEVEL:1,XP_BASE_REF:1,LEAGUE_TRAINERS:{xp:{},reward:1,replayMoney:1,money:1,moneyWon:1},LEADER_REPLAY_MONEY:1,TRAINER_MONEY:()=>1,MONEY_GAIN:1,COINS:{trainerChance:0}},t:{BASE_EXP:{},BadgeShine:null},se:false,oa:()=>remaining?[{}]:[],Oe:()=>{},ht:()=>party.filter(m=>m.hp>0),Jn:()=>false,Zn:()=>{hpAtAdvance=party.map(m=>m.hp); adv.node++;}};
+  const ctx = {I:()=>adv,f,g:{CHAPTERS:[{league:!!state.story}],regionOf:()=>({key:'kanto'}),chaptersOf:()=>[]},a:{XP_WINS_PER_LEVEL:1,XP_BASE_REF:1,LEAGUE_TRAINERS:{xp:{},reward:1,replayMoney:1,money:1,moneyWon:1},LEADER_REPLAY_MONEY:1,TRAINER_MONEY:()=>1,MONEY_GAIN:1,COINS:{trainerChance:0}},t:{BASE_EXP:{},BadgeShine:null},se:false,oa:()=>remaining?[{}]:[],Oe:()=>{},ht:()=>party.filter(m=>m.hp>0),Jn:()=>false,Zn:()=>{hpAtAdvance=party.map(m=>m.hp); adv.node++;}};
   const result = vm.runInNewContext('('+fn+')',ctx)(battle,battle.enemies[0]);
   return {party,adv,result,hpAtAdvance};
 }

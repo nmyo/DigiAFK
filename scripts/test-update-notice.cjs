@@ -15,12 +15,12 @@ async function scenario(title, lang = 'zh-Hans') {
     addEventListener() {}
   };
   const window = {};
-  const context = { document, window, location: { reload() { reloads++; } }, navigator: { serviceWorker: { addEventListener(type, fn) { message = fn; } } }, fetch: async () => ({ ok: true, json: async () => ({ v: version }) }), setInterval(fn) { interval = fn; }, Date };
+  const context = { document, window, location: { reload() { reloads++; } }, navigator: { serviceWorker: { controller: {}, addEventListener(type, fn) { message = fn; } } }, fetch: async () => ({ ok: true, json: async () => ({ v: version }) }), setInterval(fn) { interval = fn; }, sessionStorage: {getItem(){return null},setItem(){}}, Date };
   vm.runInNewContext(source.slice(start), context);
   await new Promise(setImmediate);
   assert.equal(window.__pcHot.state(), 'one');
   version = 'two'; interval(); await new Promise(setImmediate);
-  if (title) { assert.equal(reloads, 1); assert.equal(button, undefined); message({data:{type:'pc-updated'}}); assert.equal(reloads, 2); }
+  if (title) { assert.equal(reloads, 1); assert.equal(button, undefined); message({data:{type:'pc-updated'}}); assert.equal(reloads, 1); }
   else { assert.equal(reloads, 0); assert.equal(button.id, 'pc-update'); assert.equal(button.textContent, lang === 'zh-Hant' ? '發現新版本 · 點擊更新' : '发现新版本 · 点击更新'); button.onclick(); assert.equal(reloads, 1); }
 }
 async function failedFirstRequest() {
