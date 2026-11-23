@@ -8,11 +8,13 @@
  * - version.json 每次请求都走网络（no-store），供页面轮询判断是否有新构建。
  * - 新 SW 接管后向页面广播 pc-updated 消息。
  */
-const VERSION = 'pc-cache-v19';
+const VERSION = 'pc-cache-v20';
 const CORE = [
   './',
   './index.html',
   './boot.js',
+  './intros/legend-intros.html',
+  './intros/fonts.css',
   './offline-ui.js',
   './update-notice.js',
   './bundle/app.c74e480997.js',
