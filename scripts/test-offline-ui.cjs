@@ -17,3 +17,33 @@ assert.equal(JSON.parse(run().get('pokecatch-perf')).calm, true);
 const custom = '{"calm":false,"weather":true}';
 assert.equal(run(custom).get('pokecatch-perf'), custom);
 console.log('Default eco mode and existing preferences verified.');
+
+// Simulate a feed being removed immediately before a log mutation.
+{
+  const observers = [];
+  class Element {
+    constructor() { this.children = []; this.isConnected = true; this.textContent = ''; }
+    appendChild(child) { this.children.push(child); child.isConnected = true; return child; }
+    replaceChildren() { this.children.forEach(child => { child.isConnected = false; }); this.children = []; }
+    setAttribute() {}
+    insertBefore() {}
+    querySelector() { return trade; }
+  }
+  const log = new Element(), news = new Element(), social = new Element(), trade = new Element();
+  social.parentNode = new Element();
+  const callbacks = {};
+  const document = {
+    head: new Element(), body: new Element(),
+    createElement: () => new Element(),
+    getElementById: id => id === 'battle-log' ? log : news,
+    querySelector: () => social,
+    addEventListener: (name, fn) => { callbacks[name] = fn; },
+  };
+  class Observer { constructor(fn) { this.fn = fn; observers.push(this); } observe() {} }
+  vm.runInNewContext(source, {document, MutationObserver: Observer, localStorage: {getItem: () => 'saved'}});
+  callbacks.DOMContentLoaded();
+  log.textContent = 'first'; observers[0].fn();
+  news.replaceChildren();
+  log.textContent = 'second'; observers[0].fn();
+  assert.deepEqual(news.children[0].children.map(row => row.textContent), ['first', 'second']);
+}

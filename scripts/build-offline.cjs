@@ -8,7 +8,11 @@ const fs = require('fs');
 const path = require('path');
 
 const SITE = path.join(__dirname, '..', 'site');
-const MIRROR = '/workspace/pokecatch-mirror';
+// Pass the original mirror directory as the first argument.
+const MIRROR = path.resolve(process.argv[2] || path.join(__dirname, '..', '..', 'pokecatch-mirror'));
+if (!fs.existsSync(path.join(MIRROR, 'boot.js')) || !fs.existsSync(path.join(MIRROR, 'bundle'))) {
+  throw new Error(`Mirror not found at ${MIRROR}; pass its path as the first argument`);
+}
 const CDN = 'https://pokecatch-online.pages.dev/';
 // 部署根目录（支持子路径，如 GitHub Pages /DigiAFK/）
 const ROOT = '"+(new URL(".",location))+"';

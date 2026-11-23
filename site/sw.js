@@ -8,7 +8,7 @@
  * - version.json 每次请求都走网络（no-store），供页面轮询判断是否有新构建。
  * - 新 SW 接管后向页面广播 pc-updated 消息。
  */
-const VERSION = 'pc-cache-v16';
+const VERSION = 'pc-cache-v17';
 const CORE = [
   './',
   './index.html',
@@ -20,6 +20,45 @@ const CORE = [
   './bundle/lang-zh-Hans.2a57ab3291.js',
   './bundle/lang-en.d1eee1a2ce.js',
 ];
+
+// 合并并发枚举，并定期重新检查旧 worker 迟到创建的缓存。
+const CLEANUP_INTERVAL = 60 * 1000;
+let retainedPromise;
+let lastCleanup = 0;
+
+function retainedOldVersions(force = false) {
+  if (retainedPromise && (lastCleanup === 0 || (!force && Date.now() - lastCleanup < CLEANUP_INTERVAL))) {
+    return retainedPromise;
+  }
+  lastCleanup = 0;
+  retainedPromise = cleanupOldVersions().then((versions) => {
+    lastCleanup = Date.now();
+    return versions;
+  }, (error) => {
+    retainedPromise = undefined;
+    throw error;
+  });
+  return retainedPromise;
+}
+
+// 只管理本应用的规范版本名；未来版本可能属于另一个正在运行的 worker。
+async function cleanupOldVersions() {
+  const current = BigInt(VERSION.slice(10));
+  const old = (await caches.keys()).filter((key) => /^pc-cache-v(0|[1-9][0-9]*)$/.test(key) && BigInt(key.slice(10)) < current)
+    .sort((a, b) => BigInt(a.slice(10)) > BigInt(b.slice(10)) ? -1 : 1);
+  await Promise.all(old.slice(2).map((key) => caches.delete(key)));
+  return old.slice(0, 2);
+}
+
+async function matchRetained(req) {
+  const hit = await caches.match(req, { cacheName: VERSION });
+  if (hit) return hit;
+  for (const key of await retainedOldVersions()) {
+    // match 不会像 open 一样在并发删除后重新创建空缓存。
+    const oldHit = await caches.match(req, { cacheName: key });
+    if (oldHit) return oldHit;
+  }
+}
 
 async function put(cache, key, res) {
   try {
@@ -44,8 +83,8 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)));
+    // 最多保留最近两个旧版本；更老页面的离线资源可能因此丢失。
+    await retainedOldVersions(true);
     await self.clients.claim();
     // 通知已打开的页面：新版本已接管
     const list = await self.clients.matchAll({ type: 'window' });
@@ -57,6 +96,8 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
+  // 旧 worker 可能在激活后重新创建旧缓存；后续请求定期回收。
+  event.waitUntil(retainedOldVersions().catch(() => {}));
   const url = new URL(req.url);
   // 防御：任何对旧云端的请求一律快速失败（mock 已保证不会发出）
   if (url.hostname.endsWith('supabase.co') || url.hostname === 'pokecatch-online.pages.dev') {
@@ -86,28 +127,30 @@ self.addEventListener('fetch', (event) => {
         if (fresh.ok) await put(cache, req, fresh.clone());
         return fresh;
       } catch (e) {
-        return (await caches.match(req)) || Response.error();
+        return (await matchRetained(req)) || Response.error();
       }
     })());
     return;
   }
 
   // 图片等静态资源：缓存优先，后台静默更新
-  event.respondWith((async () => {
+  const result = (async () => {
     const cache = await caches.open(VERSION);
-    const hit = await cache.match(req);
+    const hit = await matchRetained(req);
     if (hit) {
-      fetch(req)
-        .then((res) => (res.ok ? cache.put(req, res) : undefined))
+      const update = fetch(req)
+        .then((res) => (res.ok ? put(cache, req, res) : undefined))
         .catch(() => {});
-      return hit;
+      return { response: hit, update };
     }
     try {
       const res = await fetch(req);
       if (res.ok) await put(cache, req, res.clone());
-      return res;
+      return { response: res };
     } catch (e) {
-      return Response.error();
+      return { response: Response.error() };
     }
-  })());
+  })();
+  event.respondWith(result.then(({ response }) => response));
+  event.waitUntil(result.then(({ update }) => update).catch(() => {}));
 });

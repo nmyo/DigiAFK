@@ -9,7 +9,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     var style = document.createElement('style');
-    style.textContent = '#save-btn,#guide-btn,.opt-modal [data-p="community"],.opt-modal .op-community,.ti-how-btn,.ti-cl-btn,.ti-row{display:none!important}';
+    style.textContent = '#save-btn,#guide-btn,.opt-modal [data-p="community"],.opt-modal .op-community,.ti-row{display:none!important}';
     document.head.appendChild(style);
 
     function setup() {
@@ -43,9 +43,9 @@
       var text = arenaLog.textContent.trim();
       if (!text || text === last) return;
       last = text;
+      install();
       records.push(text);
       if (records.length > 40) records.shift();
-      install();
       addRow(text);
       while (feed.children.length > 40) feed.firstElementChild.remove();
     }
