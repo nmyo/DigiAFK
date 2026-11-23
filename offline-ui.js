@@ -16,10 +16,8 @@
     var arenaLog = document.getElementById('battle-log');
     var news = document.getElementById('newsbar');
     var social = document.querySelector('#tabs .nav-grp[data-grp="social"]');
-    var trade = social && social.querySelector('[data-screen="trade"]');
-    if (!arenaLog || !news || !social || !trade) return false;
-    social.parentNode.insertBefore(trade, social);
-    social.hidden = true;
+    if (!arenaLog || !news) return false;
+    if (social) social.hidden = true;
     var labels = {'zh-Hans': '战斗日志', 'zh-Hant': '戰鬥日誌'};
     function updateLabel() {
       if (feed) feed.setAttribute('aria-label', labels[document.documentElement.lang] || labels[window.LANG_PICK && window.LANG_PICK.lang] || labels['zh-Hans']);
