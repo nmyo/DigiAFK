@@ -24,8 +24,8 @@ async function main() {
   assert.equal(state.eco.calm, true);
   assert.equal(state.button, 'none');
   assert.equal(state.feed, true);
-  const nav = await send('Runtime.evaluate', { returnByValue: true, expression: `({parent:document.querySelector('[data-screen="trade"]').parentElement.id, social:document.querySelector('[data-grp="social"]').hidden})` });
-  assert.equal(nav.result.result.value.parent, 'tabs');
+  const nav = await send('Runtime.evaluate', { returnByValue: true, expression: `(() => {const trade=document.querySelector('[data-screen="trade"]');return {trade:trade && getComputedStyle(trade).display, social:document.querySelector('[data-grp="social"]').hidden}})()` });
+  assert.equal(nav.result.result.value.trade, 'none');
   assert.equal(nav.result.result.value.social, true);
   const guide = await send('Runtime.evaluate', { returnByValue: true, expression: `getComputedStyle(document.querySelector('#guide-btn')).display` });
   assert.equal(guide.result.result.value, 'none');

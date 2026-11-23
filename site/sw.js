@@ -8,12 +8,13 @@
  * - version.json 每次请求都走网络（no-store），供页面轮询判断是否有新构建。
  * - 新 SW 接管后向页面广播 pc-updated 消息。
  */
-const VERSION = 'pc-cache-v18';
+const VERSION = 'pc-cache-v19';
 const CORE = [
   './',
   './index.html',
   './boot.js',
   './offline-ui.js',
+  './update-notice.js',
   './bundle/app.c74e480997.js',
   './bundle/vendor-supabase.8596965fe9.js',
   './bundle/app.9258c082d1.css',
@@ -58,6 +59,15 @@ async function matchRetained(req) {
     const oldHit = await caches.match(req, { cacheName: key });
     if (oldHit) return oldHit;
   }
+}
+
+async function matchPageFallback(req) {
+  const exact = await matchRetained(req);
+  if (exact || req.mode !== 'navigate') return exact;
+  const url = new URL(req.url);
+  if (!url.search) return;
+  url.search = '';
+  return matchRetained(url.href);
 }
 
 async function put(cache, key, res) {
@@ -123,12 +133,12 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(new Request(req, { cache: 'no-cache' }));
-        if (fresh.status >= 500 && fresh.status <= 599) return (await matchRetained(req)) || fresh;
+        if (fresh.status >= 500 && fresh.status <= 599) return (await matchPageFallback(req)) || fresh;
         const cache = await caches.open(VERSION);
         if (fresh.ok) await put(cache, req, fresh.clone());
         return fresh;
       } catch (e) {
-        return (await matchRetained(req)) || Response.error();
+        return (await matchPageFallback(req)) || Response.error();
       }
     })());
     return;

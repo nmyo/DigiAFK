@@ -1,0 +1,11 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const file = path.join(__dirname, '..', 'site', 'bundle', 'app.c74e480997.js');
+let source = fs.readFileSync(file, 'utf8');
+const oldPrice = 'const Ne=c=>a.EXP_CANDIES[c.id]?Math.round(a.EXP_CANDIES[c.id].price*zn()):c.price';
+const newPrice = 'const Ne=c=>Math.max(1,Math.floor((a.EXP_CANDIES[c.id]?Math.round(a.EXP_CANDIES[c.id].price*zn()):c.price)*.2))';
+const count = (text) => source.split(text).length - 1;
+if (count(oldPrice) === 1 && count(newPrice) === 0) source = source.replace(oldPrice, newPrice);
+else if (count(oldPrice) !== 0 || count(newPrice) !== 1) throw new Error('Unexpected shop price function');
+fs.writeFileSync(file, source);
+console.log('Updated ordinary shop prices.');

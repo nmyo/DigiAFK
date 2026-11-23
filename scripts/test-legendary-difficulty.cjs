@@ -9,7 +9,8 @@ const pairs = [
   ['cs({kind:"gym",enemies:_t,trainer:Le.leader,gym:Le,sprite:Le.sprite,...Lt?{elite:Lt}:{}})', 'cs({kind:"gym",enemies:_t,trainer:Le.leader,gym:!Lt&&!m.league&&!m.event&&!m.zone&&!m.tower&&g.CHAPTERS[m.chapter]?.league?{...Le,power:(Le.power||1)*.5}:Le,sprite:Le.sprite,...!Lt&&!m.league&&!m.event&&!m.zone&&!m.tower&&g.CHAPTERS[m.chapter]?.league?{hpPower:.5}:{},...Lt?{elite:Lt}:{}})'],
   ['id:144,weather:"snow",arena:"artikodin-mer-gelee",hp:3.74,power:1.08', 'id:144,weather:"snow",arena:"artikodin-mer-gelee",hp:3.37,power:1.08'],
   ['id:146,weather:"ash",arena:"sulfura-grotte-ardente",hp:34.18,power:.24', 'id:146,weather:"ash",arena:"sulfura-grotte-ardente",hp:30.76,power:.24'],
-  ['ne=I().battle?.rate??(h.legendary||h.mythical?a.LEGENDARY_CAPTURE_RATE:null)', 'ne=I().battle?.zone&&!I().battle.elite&&!I().battle.raid&&!t.LegendZones.get(I().battle.zone)?.wb&&(h.legendary||h.mythical)?76.5:I().battle?.rate??(h.legendary||h.mythical?a.LEGENDARY_CAPTURE_RATE:null)'],
+  ['return Math.min(a.CAPTURE_MAX*Le,Ne*Le)}const Ca=', 'return Math.min((I().battle?.zone&&!I().battle.elite&&!I().battle.raid&&!t.LegendZones.get(I().battle.zone)?.wb&&(h.legendary||h.mythical)? .9:a.CAPTURE_MAX)*Le,Ne*Le)}const Ca='],
+  ['ne=I().battle?.rate??(h.legendary||h.mythical?a.LEGENDARY_CAPTURE_RATE:null)', 'ne=I().battle?.zone&&!I().battle.elite&&!I().battle.raid&&!t.LegendZones.get(I().battle.zone)?.wb&&(h.legendary||h.mythical)?229.5:I().battle?.rate??(h.legendary||h.mythical?a.LEGENDARY_CAPTURE_RATE:null)'],
 ];
 const original = pairs.reduce((s, [oldRule, newRule]) => {
   assert.equal(s.split(newRule).length - 1, 1);
@@ -43,7 +44,7 @@ function probability(battle, mon, wb = false) {
   });
 }
 const legend = {legendary:true, captureRate:3};
-assert.equal(probability({zone:144}, legend), .3);
+assert.equal(probability({zone:144}, legend), .9);
 assert.equal(probability({zone:144, elite:1}, legend), 3/255);
 assert.equal(probability({zone:144, raid:true, rate:10}, legend), 10/255);
 assert.equal(probability({zone:144}, legend, true), 3/255);
@@ -73,6 +74,7 @@ function encounter(node, state = {}, wb = false) {
 const gym = {type:'gym', gym:{leader:'leader',power:2,badge:'badge',keep:true}};
 const story = encounter(gym);
 assert.equal(story.battle.enemies[0].hp, 390);
+assert.equal(story.battle.enemies[0].hp / encounter(gym, {storyLeague:false}).battle.enemies[0].hp, .25);
 assert.equal(story.damage, 1.3);
 assert.equal(story.battle.gym.badge, 'badge');
 assert.equal(story.battle.gym.keep, true);
