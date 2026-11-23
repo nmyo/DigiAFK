@@ -1,6 +1,6 @@
 /* 离线缓存 + 热更新（原站前端本地版）。
  * 页面直接加载本地 boot.js → 原站 app.js/vendor/语言包/素材全部来自本域，
- * Supabase 已在 vendor 尾部被替换为本地游客模式（无任何网络调用）。
+ * Supabase vendor 已由独立本地游客适配器替换（无任何网络调用）。
  *
  * 热更新策略：
  * - 页面/脚本/样式一律 network-first 且强制校验（cache: 'no-cache'）：
