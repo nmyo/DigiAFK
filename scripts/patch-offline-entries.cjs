@@ -69,15 +69,16 @@ function patch() {
   app = app.replace('t.Sfx?.unlock?.(),vt?.();const he=!H()', 't.Sfx?.unlock?.();const he=!H()');
   const accountOption = `],[e("Compte"),[t.Cloud?.available&&{id:"account",name:e("Sauvegarde"),ic:Z("assets/ui/floppy.svg"),c:"var(--blue)",html:()=>'<div class="op-card op-account"></div>'}].filter(Boolean)`;
   if (app.includes(accountOption)) app = app.replace(accountOption, '');
-  // Cinematics were previously embedded in achievements; keep their independent replay gallery.
-  const replayNav = '        <button data-screen="cinematics"><span class="ic">▶</span><span class="l">剧情回放</span></button>\n';
-  if (!boot.includes('data-screen="cinematics"')) boot = boot.replace('      </nav>', replayNav + '      </nav>');
-  const replayScreen = '      <section class="screen" id="screen-cinematics"><div class="map-head"><h2>剧情回放</h2></div><div id="cinematics-root"></div></section>\n';
-  if (!boot.includes('id="screen-cinematics"')) boot = boot.replace('      <section class="screen" id="screen-map">', replayScreen + '      <section class="screen" id="screen-map">');
-  const replayModule = `function(){const {$:a,esc:g,artSrc:U,monSrc:Pt,hasArt:I}=t.UI;const types={mon:ie=>t.Game.DEX[ie]?.mythical?e("Pokémon fabuleux"):e("Pokémon légendaire"),champ:()=>e("Maître de la Ligue"),once:()=>e("Rencontre unique")};function card(ie){const locked=!ie.done,mon=t.Game.DEX[ie.id],src=ie.kind==="champ"?\`assets/trainers/\${g(ie.sprite)}.png\`:I(ie.id)?U(ie.id,ie.shiny,locked):Pt(ie.id,ie.shiny),name=ie.known?ie.kind==="champ"?e(ie.leader):e(mon.name):"???";return \`<button class="ach-cin\${locked?" lock":""}"\${locked?" disabled":\` data-cine="\${g(ie.key)}" title="\${t.I18n.lang==="zh-Hant"?"劇情回放":"剧情回放"}" style="background-image:url(assets/bg/scenes/\${ie.scene}-710x400.webp)"\`}>\${ie.fresh?'<span class="tc-new ach-new">NEW</span>':""}<img class="ach-cin-sp" src="\${src}" alt=""><span class="ach-cin-cap"><small>\${types[ie.kind](ie.id)}</small><b>\${g(name)}</b></span>\${locked?'<img class="ach-cin-pad" src="assets/ui/padlock.svg" alt="">':'<span class="ach-cin-play">▶</span>'}</button>\`}function render(){const list=t.Screens.adventure?.cinematics()||[],regions=[...new Set(list.map(x=>x.reg))],visible=regions.filter(r=>!list.find(x=>x.reg===r).away);a("#cinematics-root").innerHTML=visible.map(r=>{const items=list.filter(x=>x.reg===r);return \`<section class="ach-grp"><h4>\${g(e(t.STORY.REGIONS.find(x=>x.key===r).name))}<em>\${items.filter(x=>x.done).length} / \${items.length}</em></h4><div class="ach-gal">\${items.map(card).join("")}</div></section>\`}).join("")+(visible.length<regions.length?\`<div class="ach-lock">??? · \${t.I18n.lang==="zh-Hant"?"繼續冒險以發現更多劇情":"继续冒险以发现更多剧情"}</div>\`:"")}t.Screens.cinematics={init(){const label=t.I18n.lang==="zh-Hant"?"劇情回放":"剧情回放";a('[data-screen="cinematics"] .l').textContent=label;a("#screen-cinematics h2").textContent=label;a("#cinematics-root").addEventListener("click",ev=>{const button=ev.target.closest("[data-cine]");if(button){t.Sfx.click();t.Screens.adventure?.replayCinematic(button.dataset.cine).then(render)}})},render}}(),`;
+  // Remove only the replay gallery; the shared adventure intro player remains.
+  boot = boot.replace(/^        <button data-screen="cinematics"[^\n]*\n/m, '');
+  boot = boot.replace(/^      <section class="screen" id="screen-cinematics"[^\n]*\n/m, '');
   const replayAnchor = 'function(){const{$:a,h:g,typeBadge:f,sprBox:ue,esc:U,idle:Pt,toast:I,buddyIcon:se,fmt:Ve,tween:tt,sleep:et,modal:v,confirm:M}=t.UI';
-  if (app.includes('t.Screens.cinematics=')) { const start=app.indexOf('function(){const {$:a,esc:g,artSrc:U,monSrc:Pt,hasArt:I}=t.UI;const types='); const end=app.indexOf(replayAnchor,start); if(start<0||end<0) throw new Error('Unexpected cinematics module'); app=app.slice(0,start)+app.slice(end); }
-  app = replace(app, replayAnchor, replayModule + replayAnchor, 'cinematics module');
+  if (app.includes('t.Screens.cinematics=')) {
+    const start = app.indexOf('function(){const {$:a,esc:g,artSrc:U,monSrc:Pt,hasArt:I}=t.UI;const types=');
+    const end = app.indexOf(replayAnchor, start);
+    if (start < 0 || end < 0) throw new Error('Unexpected cinematics module');
+    app = app.slice(0, start) + app.slice(end);
+  }
   // No mandatory callers depend on the hidden link; remaining SVG consumers use optional fallback.
   boot = boot.replace(/^        <a class="side-disc"[^\n]*\n/m, '');
   app = removeBlock(app, 't.Changelog=function(){', '}(),t.News=', 'guide and changelog modules');

@@ -89,20 +89,8 @@ async function main() {
   await send('Runtime.evaluate', {expression:`(() => {const form=document.querySelector('.lab-name'); if(!form) throw Error('name form missing'); form.requestSubmit()})()`});
   await new Promise(resolve=>setTimeout(resolve,2000));
   for(let i=0;i<10;i++) { await send('Runtime.evaluate',{expression:`document.querySelector('.chen-text')?.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))`}); await new Promise(resolve=>setTimeout(resolve,500)); }
-  await send('Runtime.evaluate', {expression:`window.introMessages=[]; window.addEventListener('message', e => { if(e.source === window.smokeIntroFrame && e.data?.legendIntro) window.introMessages.push(e.data.legendIntro) })`});
-  const replay = await send('Runtime.evaluate', {returnByValue:true,expression:`(() => {document.querySelector('[data-screen="cinematics"]').click(); const root=document.querySelector('#cinematics-root'), unlocked=root.querySelector('[data-cine]'), locked=root.querySelector('button.lock'); if(!unlocked||!locked) throw Error('unlocked/locked fixture cards missing'); locked.click(); const before=!!document.querySelector('.legend-intro.replay'); unlocked.click(); window.smokeIntroFrame=document.querySelector('.legend-intro.replay iframe').contentWindow; return {active:document.querySelector('#screen-cinematics').classList.contains('active'),locked:locked.disabled,lockedHasKey:locked.hasAttribute('data-cine'),before,replaying:!!document.querySelector('.legend-intro.replay')};})()`});
-  assert.deepEqual(replay.result.result.value,{active:true,locked:true,lockedHasKey:false,before:false,replaying:true});
-  // Wait for the real player handshake and completion, without skipping.
-  await send('Runtime.evaluate', {expression:`window.smokeGalleryCard = document.querySelector('#cinematics-root [data-cine]')`});
-  for (let i=0;i<80;i++) {
-    const playing = await send('Runtime.evaluate', {returnByValue:true, expression:`!!document.querySelector('.legend-intro.replay')`});
-    if (!playing.result.result.value) break;
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  const completed = await send('Runtime.evaluate', {returnByValue:true, expression:`(() => ({overlay:!!document.querySelector('.legend-intro.replay'), active:document.querySelector('#screen-cinematics').classList.contains('active'), unlocked:!!document.querySelector('#cinematics-root [data-cine]'), locked:!!document.querySelector('#cinematics-root button.lock:disabled'), rendered:!window.smokeGalleryCard.isConnected}))()`});
-  const messages = (await send('Runtime.evaluate', {returnByValue:true, expression:`window.introMessages`})).result.result.value;
-  assert.deepEqual(messages, ['loaded','ready','done'], 'only the target iframe sends the complete handshake without errors');
-  assert.deepEqual(completed.result.result.value, {overlay:false, active:true, unlocked:true, locked:true, rendered:true}, 'completion callback restores and re-renders the gallery');
+  const replayAbsent = await send('Runtime.evaluate', {returnByValue:true, expression:`!document.querySelector('[data-screen="cinematics"], #screen-cinematics')`});
+  assert.equal(replayAbsent.result.result.value, true, 'replay gallery is absent');
   await send('Runtime.evaluate', { expression: `document.querySelector('#options-btn').click()` });
   await new Promise((resolve) => setTimeout(resolve, 300));
   assert.deepEqual(resourceFailures, [], 'critical resources load successfully');

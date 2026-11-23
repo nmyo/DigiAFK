@@ -9,7 +9,8 @@
         var d = document.createElement('button');
         d.id = 'pc-update';
         d.type = 'button';
-        d.textContent = '发现新版本 · 点击更新';
+        var lang = document.documentElement.lang || window.LANG_PICK && window.LANG_PICK.lang;
+        d.textContent = lang === 'zh-Hant' ? '發現新版本 · 點擊更新' : '发现新版本 · 点击更新';
         d.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:99999;padding:10px 16px;border:0;border-radius:999px;' +
           'cursor:pointer;font:600 13px/1 system-ui,-apple-system,sans-serif;color:#fff;background:#e4352b;' +
           'box-shadow:0 6px 20px rgba(0,0,0,.35)';

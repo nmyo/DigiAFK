@@ -8,7 +8,9 @@
  * - version.json 每次请求都走网络（no-store），供页面轮询判断是否有新构建。
  * - 新 SW 接管后向页面广播 pc-updated 消息。
  */
-const VERSION = 'pc-cache-v20';
+const CACHE_REVISION = 21n;
+const CACHE_PREFIX = `pc-scope-${encodeURIComponent(self.registration.scope)}-v`;
+const VERSION = `${CACHE_PREFIX}${CACHE_REVISION}`;
 const CORE = [
   './',
   './index.html',
@@ -46,9 +48,9 @@ function retainedOldVersions(force = false) {
 
 // 只管理本应用的规范版本名；未来版本可能属于另一个正在运行的 worker。
 async function cleanupOldVersions() {
-  const current = BigInt(VERSION.slice(10));
-  const old = (await caches.keys()).filter((key) => /^pc-cache-v(0|[1-9][0-9]*)$/.test(key) && BigInt(key.slice(10)) < current)
-    .sort((a, b) => BigInt(a.slice(10)) > BigInt(b.slice(10)) ? -1 : 1);
+  const revision = (key) => key.slice(CACHE_PREFIX.length);
+  const old = (await caches.keys()).filter((key) => key.startsWith(CACHE_PREFIX) && /^(0|[1-9][0-9]*)$/.test(revision(key)) && BigInt(revision(key)) < CACHE_REVISION)
+    .sort((a, b) => BigInt(revision(a)) > BigInt(revision(b)) ? -1 : 1);
   await Promise.all(old.slice(2).map((key) => caches.delete(key)));
   return old.slice(0, 2);
 }

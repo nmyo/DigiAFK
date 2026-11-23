@@ -9,6 +9,7 @@ let now = 100000;
 class Clock extends Date { static now() { return now; } }
 let network = async () => { throw Error('offline'); };
 let quotaFull = false;
+const prefix = 'pc-scope-' + encodeURIComponent('https://example.com/') + '-v';
 function cache(name) {
   if (!stores.has(name)) stores.set(name, new Map());
   const data = stores.get(name);
@@ -36,7 +37,7 @@ const caches = {
 };
 vm.runInNewContext(fs.readFileSync('site/sw.js', 'utf8'), {
   caches, URL, Response, Request: class { constructor(req) { return req; } }, Date: Clock, fetch: (...args) => network(...args),
-  self: { addEventListener: (type, fn) => { handlers[type] = fn; }, location: {origin:'https://example.com'},
+  self: { registration: {scope:'https://example.com/'}, addEventListener: (type, fn) => { handlers[type] = fn; }, location: {origin:'https://example.com'},
     clients: {claim: async () => {}, matchAll: async () => []}, skipWaiting: async () => {} },
 });
 function dispatch(type, event = {}) {
@@ -47,46 +48,50 @@ function dispatch(type, event = {}) {
 }
 const request = path => ({method:'GET', url:`https://example.com/${path}`, destination:'image'});
 (async () => {
+  stores.set('pc-cache-v1', new Map([['legacy', 'untouched']]));
+  stores.set('pc-scope-https%3A%2F%2Fexample.com%2Fother%2F-v1', new Map([['foreign', 'untouched']]));
   stores.set('other-app', new Map([['image', 'foreign']]));
-  stores.set('pc-cache-v16', new Map([['image', 'old-image'], ['script', 'old-script']]));
-  stores.set('pc-cache-v20', new Map([['script', 'new-script']]));
-  stores.set('pc-cache-v21', new Map([['future', 'future']]));
-  stores.set('pc-cache-v016', new Map([['foreign', 'foreign']]));
-  stores.get('pc-cache-v16').set('shared', 'newer');
+  stores.set(prefix + '16', new Map([['image', 'old-image'], ['script', 'old-script']]));
+  stores.set(prefix + '21', new Map([['script', 'new-script']]));
+  stores.set(prefix + '22', new Map([['future', 'future']]));
+  stores.set(prefix + '016', new Map([['foreign', 'foreign']]));
+  stores.get(prefix + '16').set('shared', 'newer');
   // Activation retains only the two most recent older versions, without copying assets.
   for (let version = 1; version < 16; version++) {
-    stores.set(`pc-cache-v${version}`, new Map([[`asset-${version}`, `old-${version}`]]));
+    stores.set(`${prefix}${version}`, new Map([[`asset-${version}`, `old-${version}`]]));
   }
-  stores.get('pc-cache-v15').set('shared', 'older');
+  stores.get(prefix + '15').set('shared', 'older');
   await dispatch('activate').done;
   assert.equal(enumerations, 0);
   assert.equal(cacheEnumerations, 1);
-  assert.equal(stores.has('pc-cache-v1'), false);
-  assert.equal(stores.has('pc-cache-v14'), false);
-  assert.equal(stores.has('pc-cache-v15'), true);
-  assert.equal(stores.has('pc-cache-v20'), true);
-  assert.equal(stores.has('pc-cache-v016'), true);
+  assert.equal(stores.has(prefix + '1'), false);
+  assert.equal(stores.has(prefix + '14'), false);
+  assert.equal(stores.has(prefix + '15'), true);
+  assert.equal(stores.has(prefix + '21'), true);
+  assert.equal(stores.has(prefix + '016'), true);
   assert.equal(stores.has('other-app'), true);
-  assert.equal(stores.has('pc-cache-v16'), true);
-  assert.equal(stores.get('pc-cache-v20').has('image'), false);
-  assert.equal(stores.get('pc-cache-v20').get('script'), 'new-script');
+  assert.equal(stores.has('pc-cache-v1'), true);
+  assert.equal(stores.has('pc-scope-https%3A%2F%2Fexample.com%2Fother%2F-v1'), true);
+  assert.equal(stores.has(prefix + '16'), true);
+  assert.equal(stores.get(prefix + '21').has('image'), false);
+  assert.equal(stores.get(prefix + '21').get('script'), 'new-script');
   // Concurrent misses share one refresh, including the fallback lookup.
   now += 60000;
   const concurrent = Array.from({length: 20}, (_, i) => dispatch('fetch', {request: request(`missing-${i}`)}));
   await Promise.all(concurrent.map(async event => { await event.response; await event.done; }));
   assert.equal(cacheEnumerations, 2);
   // A recreated obsolete cache is collected after the interval, not used as fallback.
-  stores.set('pc-cache-v1', new Map([['obsolete', 'obsolete']]));
+  stores.set(prefix + '1', new Map([['obsolete', 'obsolete']]));
   let beforeInterval = dispatch('fetch', {request: request('obsolete')});
   assert.equal((await beforeInterval.response).type, 'error');
   await beforeInterval.done;
-  assert.equal(stores.has('pc-cache-v1'), true);
+  assert.equal(stores.has(prefix + '1'), true);
   assert.equal(cacheEnumerations, 2);
   now += 60000;
   let oldest = dispatch('fetch', {request: request('obsolete')});
   assert.equal((await oldest.response).type, 'error');
   await oldest.done;
-  assert.equal(stores.has('pc-cache-v1'), false);
+  assert.equal(stores.has(prefix + '1'), false);
   assert.equal(cacheEnumerations, 3);
   let sorted = dispatch('fetch', {request: request('shared')});
   assert.equal(await sorted.response, 'newer');
@@ -106,9 +111,9 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   let failed = dispatch('fetch', {request: {method:'GET', url:'https://example.com/missing-page', mode:'navigate'}});
   assert.equal((await failed.response).status, 503);
   await failed.done;
-  stores.get('pc-cache-v20').set('page', 'plain-page');
-  stores.get('pc-cache-v20').set('page?exact=1', 'exact-page');
-  stores.get('pc-cache-v16').set('old-page', 'old-page-response');
+  stores.get(prefix + '21').set('page', 'plain-page');
+  stores.get(prefix + '21').set('page?exact=1', 'exact-page');
+  stores.get(prefix + '16').set('old-page', 'old-page-response');
   for (const [path, expected] of [['page?x=1', 'plain-page'], ['page?exact=1', 'exact-page'], ['old-page?x=1', 'old-page-response']]) {
     const navigation = dispatch('fetch', {request: {method:'GET', url:'https://example.com/' + path, mode:'navigate'}});
     assert.equal(await navigation.response, expected);
@@ -130,7 +135,7 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   assert.equal((await foreign.response).type, 'error');
   await foreign.done;
   // A prior worker may finish writing even after activation.
-  stores.get('pc-cache-v16').set('late', 'late-image');
+  stores.get(prefix + '16').set('late', 'late-image');
   let event = dispatch('fetch', {request: request('late')});
   assert.equal(await event.response, 'late-image');
   await event.done;
@@ -146,7 +151,7 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   assert.equal(await event.response, 'late-image');
   release(new Response('fresh-image'));
   await event.done;
-  assert.equal(await stores.get('pc-cache-v20').get('late').clone().text(), 'fresh-image');
+  assert.equal(await stores.get(prefix + '21').get('late').clone().text(), 'fresh-image');
   network = async () => { throw Error('offline'); };
   event = dispatch('fetch', {request: request('late')});
   assert.equal(await (await event.response).text(), 'fresh-image');
@@ -157,7 +162,7 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   event = dispatch('fetch', {request: request('quota-miss')});
   assert.equal(await (await event.response).text(), 'network-only');
   await event.done;
-  assert.equal(stores.get('pc-cache-v20').has('quota-miss'), false);
+  assert.equal(stores.get(prefix + '21').has('quota-miss'), false);
   event = dispatch('fetch', {request: request('image')});
   assert.equal(await event.response, 'old-image');
   await event.done;
