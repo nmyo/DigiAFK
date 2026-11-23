@@ -45,6 +45,7 @@ require('./patch-legendary-view.cjs').patchBundle();
 require('./patch-wild-weather.cjs').patchBundle();
 require('./patch-encounter-panel.cjs').patchBundle();
 require('./patch-unown-translation.cjs').patchBundle();
+require('./patch-offline-entries.cjs').patch();
 const version = path.join(SITE, 'version.json');
 if (!fs.existsSync(version)) fs.writeFileSync(version, JSON.stringify({ v: 'dev' }) + '\n');
 console.log('Local offline build complete.');

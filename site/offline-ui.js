@@ -9,15 +9,13 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     var style = document.createElement('style');
-    style.textContent = '#save-btn,#guide-btn,.opt-modal [data-p="community"],.opt-modal .op-community,.ti-row{display:none!important}.zone-uncaught-label{position:absolute;right:1px;bottom:1px;background:#d63b32;color:white;border-radius:3px;padding:1px 3px;font:700 10px system-ui}';
+    style.textContent = '.zone-uncaught-label{position:absolute;right:1px;bottom:1px;background:#d63b32;color:white;border-radius:3px;padding:1px 3px;font:700 10px system-ui}';
     document.head.appendChild(style);
 
     function setup() {
     var arenaLog = document.getElementById('battle-log');
     var news = document.getElementById('newsbar');
-    var social = document.querySelector('#tabs .nav-grp[data-grp="social"]');
     if (!arenaLog || !news) return false;
-    if (social) social.hidden = true;
     var labels = {'zh-Hans': '战斗日志', 'zh-Hant': '戰鬥日誌'};
     function updateLabel() {
       if (feed) feed.setAttribute('aria-label', labels[document.documentElement.lang] || labels[window.LANG_PICK && window.LANG_PICK.lang] || labels['zh-Hans']);

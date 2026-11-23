@@ -29,20 +29,17 @@ console.log('Default eco mode and existing preferences verified.');
     insertBefore() {}
     querySelector() { return null; }
   }
-  const log = new Element(), news = new Element(), social = new Element(), trade = new Element();
-  social.parentNode = new Element();
+  const log = new Element(), news = new Element();
   const callbacks = {};
   const document = {
     head: new Element(), body: new Element(), documentElement: {lang: 'fr'},
     createElement: () => new Element(),
     getElementById: id => id === 'battle-log' ? log : news,
-    querySelector: () => social,
     addEventListener: (name, fn) => { callbacks[name] = fn; },
   };
   class Observer { constructor(fn) { this.fn = fn; observers.push(this); } observe() {} }
   vm.runInNewContext(source, {document, window: {LANG_PICK: {lang: 'fr'}}, MutationObserver: Observer, localStorage: {getItem: () => 'saved'}});
   callbacks.DOMContentLoaded();
-  assert.equal(social.hidden, true);
   assert.equal(news.children[0].attributes['aria-label'], '战斗日志');
   assert.equal(news.children[0].attributes.role, 'region');
   document.documentElement.lang = 'zh-Hant'; observers[0].fn();

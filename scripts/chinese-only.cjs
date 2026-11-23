@@ -1,5 +1,4 @@
 const fs = require('node:fs');
-const path = require('node:path');
 
 function replaceOnce(source, pattern, replacement, name) {
   const matches = source.match(pattern);
