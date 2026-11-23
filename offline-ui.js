@@ -9,7 +9,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     var style = document.createElement('style');
-    style.textContent = '#save-btn,#guide-btn,.opt-modal [data-p="community"],.opt-modal .op-community,.ti-row{display:none!important}';
+    style.textContent = '#save-btn,#guide-btn,.opt-modal [data-p="community"],.opt-modal .op-community,.ti-row{display:none!important}.zone-uncaught-label{position:absolute;right:1px;bottom:1px;background:#d63b32;color:white;border-radius:3px;padding:1px 3px;font:700 10px system-ui}';
     document.head.appendChild(style);
 
     function setup() {
