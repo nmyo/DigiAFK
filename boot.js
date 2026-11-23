@@ -26,14 +26,12 @@
           </div></div>
         </div>
         <button data-screen="shop"><span class="ic"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABm0lEQVR4nGNgGAUjHTCSqkFaWuk/PvmnT++RZCYjqZZXr73LsOvIGzD/xomTDHkl3ij8z8fzSHIEEymW81pOIqgO5EBCoYQMWPBZiMw3LTwJ9iExAKSWod8cRT+uUGHCZTnIEJCPQT4CG0giQNePK1SYcFlObYDLEUwMAwwY8YXAlV1bqWKJjps3mD7db46RFliwaXj9+CuDrbU8g0ZKPE5D18xZiMIPwaMWBA4ffUhaLjiMQwMIvLx+gOHCuggUMYOghQzimg4MpAImBgqAe/ULMKYEsJCr8cqNDwy9sRxwNlUTIad2HQMtwPerTcQlwrIoDZo4oLGayBC4efMaTRygrq5FXAigA4OgFQzYAHpOIAewYBPElqiis1Dz+dJpC+HqLl15gNcSPR0F0hyAC+zZj7tsWHheAkzvbIXQsOwZb/iCOuXAHjyWwwDIcuRyAeYYmpQD6ADk02VrXjDEGzKg0GQ54BJanEKyJZphhhoE4x6XeQQdcOXKFQZ6AUZsgqS06UgB2JpljDjUutHCAQwMDLtoZO4oGMIAALn6qNwG1mIiAAAAAElFTkSuQmCC" alt=""></span><span class="l">Boutique</span></button>
-        <button data-screen="cinematics"><span class="ic">▶</span><span class="l">剧情回放</span></button>
       </nav>
       <div class="side-foot">
       </div>
       <div class="side-admin" id="side-admin" hidden></div>
     </aside>
     <main>
-      <section class="screen" id="screen-cinematics"><div class="map-head"><h2>剧情回放</h2></div><div id="cinematics-root"></div></section>
       <section class="screen" id="screen-map"><div id="map-root"></div></section>
       <section class="screen" id="screen-event"><div id="event-root"></div></section>
       <section class="screen" id="screen-raid"><div id="raid-root"></div></section>
