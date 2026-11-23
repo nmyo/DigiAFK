@@ -8,7 +8,7 @@
  * - version.json 每次请求都走网络（no-store），供页面轮询判断是否有新构建。
  * - 新 SW 接管后向页面广播 pc-updated 消息。
  */
-const VERSION = 'pc-cache-v17';
+const VERSION = 'pc-cache-v18';
 const CORE = [
   './',
   './index.html',
@@ -18,7 +18,7 @@ const CORE = [
   './bundle/vendor-supabase.8596965fe9.js',
   './bundle/app.9258c082d1.css',
   './bundle/lang-zh-Hans.2a57ab3291.js',
-  './bundle/lang-en.d1eee1a2ce.js',
+  './bundle/lang-zh-Hant.ff6e3ad523.js',
 ];
 
 // 合并并发枚举，并定期重新检查旧 worker 迟到创建的缓存。
@@ -123,6 +123,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(new Request(req, { cache: 'no-cache' }));
+        if (fresh.status >= 500 && fresh.status <= 599) return (await matchRetained(req)) || fresh;
         const cache = await caches.open(VERSION);
         if (fresh.ok) await put(cache, req, fresh.clone());
         return fresh;

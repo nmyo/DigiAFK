@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="zh-Hans">
 <head>
   <!-- The page Netlify serves (tools/bundle.mjs --shell, https://pokecatch-online.pages.dev/ filled in). The game itself (code, styles, images) is on
        the CDN (Cloudflare Pages, tools/bundle.mjs --cdn): this page only loads its boot.js, so a publish never redeploys
@@ -27,21 +27,11 @@
     // The CDN can't be reached (or a file of the game is missing): a message and a button to try again, in the player's language
     window.BOOT_FAIL = function () {
       if (document.getElementById('boot-fail')) return;
-      var pref = null, nav = (navigator.language || '').slice(0, 2).toLowerCase();
+      var pref = null, nav = navigator.language || '';
       try { pref = localStorage.getItem('pokecatch.lang'); } catch (e) { /* storage blocked */ }
-      var LANGS = ['fr', 'en', 'es', 'de', 'zh-Hans', 'zh-Hant', 'ko', 'ja']; // the game's (js/lang-pick.js LANGS, LANGUAGES.md)
-      if (nav === 'zh') nav = /hant|-(tw|hk|mo)\b/i.test(navigator.language || '') ? 'zh-Hant' : 'zh-Hans';
-      var lang = LANGS.indexOf(pref) >= 0 ? pref : LANGS.indexOf(nav) >= 0 ? nav : 'en';
-      var T = {
-        fr: ['Le jeu n’a pas pu se charger. Vérifie ta connexion puis réessaie.', 'Réessayer'],
-        en: ['The game couldn’t load. Check your connection and try again.', 'Try again'],
-        es: ['No se pudo cargar el juego. Comprueba tu conexión e inténtalo de nuevo.', 'Reintentar'],
-        de: ['Das Spiel konnte nicht geladen werden. Prüf deine Verbindung und versuch es erneut.', 'Erneut versuchen'],
-        'zh-Hans': ['游戏加载失败。请检查网络连接后重试。', '重试'],
-        'zh-Hant': ['遊戲載入失敗。請檢查網路連線後重試。', '重試'],
-        ko: ['게임을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.', '다시 시도'],
-        ja: ['ゲームを読み込めませんでした。通信環境を確認して、もう一度お試しください。', '再読み込み'],
-      }[lang];
+      var lang = pref === 'zh-Hant' ? 'zh-Hant' : pref === 'zh-Hans' ? 'zh-Hans' :
+        (!pref || pref === 'auto') && /^zh(?:-|$)/i.test(nav) && /hant|-(tw|hk|mo)\b/i.test(nav) ? 'zh-Hant' : 'zh-Hans';
+      var T = lang === 'zh-Hant' ? ['遊戲載入失敗。請檢查網路連線後重試。', '重試'] : ['游戏加载失败。请检查网络连接后重试。', '重试'];
       var box = document.createElement('div'), p = document.createElement('p'), b = document.createElement('button');
       box.id = 'boot-fail'; p.textContent = T[0]; b.textContent = T[1];
       b.onclick = function () { location.reload(); };
