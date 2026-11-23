@@ -1,0 +1,11 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const boot = fs.readFileSync('site/boot.js', 'utf8');
+const app = fs.readFileSync('site/bundle/app.c74e480997.js', 'utf8');
+const build = fs.readFileSync('scripts/build-offline.cjs', 'utf8');
+assert.match(app, /SPEEDS:\[1,2,4\],SPEED_PACE:\{4:2\.5\}/);
+assert.match(app, /SPEED_PACE\?\.\[m\]\?\?m/);
+assert.match(app, /ve\.state\.speed=\+it\.dataset\.speed/);
+assert.match(boot, /<button data-speed="4">×2\.5<\/button>/);
+assert.match(build, /boot = boot\.replace\(speedButton, '<button data-speed="4">×2\.5<\/button>'\)/);
+console.log('Speed setting 4 maps to 2.5x; boot and rebuild label agree.');

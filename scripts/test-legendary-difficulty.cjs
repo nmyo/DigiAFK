@@ -4,7 +4,8 @@ const { patchLegendaryDifficulty } = require('./patch-legendary-difficulty.cjs')
 
 const source = fs.readFileSync('site/bundle/app.c74e480997.js', 'utf8');
 const pairs = [
-  ['hpPower:(sa.hp??a.LEGEND_ZONE.HP)*_t}', 'hpPower:(sa.hp??a.LEGEND_ZONE.HP)*_t*(!Lt&&!h.raid&&!t.LegendZones.get(h.zone)?.wb? .25:1)}'],
+  ['hpPower:(sa.hp??a.LEGEND_ZONE.HP)*_t}', 'hpPower:(sa.hp??a.LEGEND_ZONE.HP)*_t*(!Lt&&!h.raid&&!t.LegendZones.get(h.zone)?.wb? .1:1)}'],
+  ['power:(sa.power??a.LEGEND_ZONE.POWER)*_t**2,', 'power:(sa.power??a.LEGEND_ZONE.POWER)*_t**2*(!Lt&&!h.raid&&!t.LegendZones.get(h.zone)?.wb? .25:1),'],
   ['cs({kind:"gym",enemies:_t,trainer:Le.leader,gym:Le,sprite:Le.sprite,...Lt?{elite:Lt}:{}})', 'cs({kind:"gym",enemies:_t,trainer:Le.leader,gym:!Lt&&!m.league&&!m.event&&!m.zone&&!m.tower&&g.CHAPTERS[m.chapter]?.league?{...Le,power:(Le.power||1)*.5}:Le,sprite:Le.sprite,...!Lt&&!m.league&&!m.event&&!m.zone&&!m.tower&&g.CHAPTERS[m.chapter]?.league?{hpPower:.5}:{},...Lt?{elite:Lt}:{}})'],
   ['id:144,weather:"snow",arena:"artikodin-mer-gelee",hp:3.74,power:1.08', 'id:144,weather:"snow",arena:"artikodin-mer-gelee",hp:3.37,power:1.08'],
   ['id:146,weather:"ash",arena:"sulfura-grotte-ardente",hp:34.18,power:.24', 'id:146,weather:"ash",arena:"sulfura-grotte-ardente",hp:30.76,power:.24'],
@@ -17,6 +18,8 @@ const original = pairs.reduce((s, [oldRule, newRule]) => {
 }, source);
 assert.equal(patchLegendaryDifficulty(original), source, 'only the expected substitutions');
 assert.equal(patchLegendaryDifficulty(source), source, 'idempotent');
+const previous = source.replace('hpPower:(sa.hp??a.LEGEND_ZONE.HP)*_t*(!Lt&&!h.raid&&!t.LegendZones.get(h.zone)?.wb? .1:1)}', 'hpPower:(sa.hp??a.LEGEND_ZONE.HP)*_t*(!Lt&&!h.raid&&!t.LegendZones.get(h.zone)?.wb? .25:1)}').replace(pairs[1][1], pairs[1][0]);
+assert.equal(patchLegendaryDifficulty(previous), source, 'upgrade previous patch');
 for (const [oldRule, newRule] of pairs) {
   assert.throws(() => patchLegendaryDifficulty(source.replace(newRule, 'missing')), /Unexpected legendary area rule/);
   assert.throws(() => patchLegendaryDifficulty(source + newRule), /Unexpected legendary area rule/);
@@ -80,10 +83,32 @@ for (const state of [{league:true},{tower:{}},{event:{}},{zone:{}},{storyLeague:
 const eliteGym=encounter({...gym, leagueElite:1, team:[[1,10]]});
 assert.equal(eliteGym.battle.enemies[0].hp,1560);
 const staticNode={type:'static',id:1,level:10,zone:144};
-assert.equal(encounter(staticNode).battle.enemies[0].hp,400);
+assert.equal(encounter(staticNode).battle.enemies[0].hp,160);
+assert.equal(encounter(staticNode).damage,2);
 assert.equal(encounter({...staticNode,elite:1}).battle.enemies[0].hp,800);
+assert.equal(encounter({...staticNode,elite:1}).damage,2);
 assert.equal(encounter({...staticNode,raid:true}).battle.enemies[0].hp,1600);
+assert.equal(encounter({...staticNode,raid:true}).damage,8);
 assert.equal(encounter(staticNode,{},true).battle.enemies[0].hp,1600);
+assert.equal(encounter(staticNode,{},true).damage,8);
 assert.equal(encounter({type:'static',id:1,level:10}).battle.enemies[0].hp,100);
 assert.equal(encounter({type:'wild'}).battle.enemies[0].hp,100);
+// Actual aura uses average team strength (not party count alone); six unranked
+// level-90 allies produce aura 1. A full-slot battle has the 4.5 HP factor.
+const auraSource = source.slice(source.indexOf('function aa(m){'), source.indexOf('function te(', source.indexOf('function aa(m){')));
+const aura = vm.runInNewContext('(' + auraSource + ')', {
+  a:{LEGEND_ZONE:{AURA:1}, MAX_LEVEL:100, UNDERGROUND:{RANK_STAT:1}},
+  f:{rankOf:()=>0},
+});
+assert.equal(aura(Array.from({length:6}, () => ({level:90}))), 1);
+assert.ok(source.includes('ENEMY_HP_PER_ALLY:.7'));
+assert.ok(source.includes('TEAM_SIZE:6'));
+// With the real initializer and actual full-slot multiplier, compare both paths.
+const init = vm.runInNewContext('(' + pn + ')', {
+  a:{TEAM_SIZE:6, ENEMY_HP_PER_ALLY:.7}, oa:b=>b.enemies,
+  f:{maxHp:x=>Math.floor(100*x.hpMult)},
+});
+const fullParty = {kind:'static', slots:6, hpPower:8*.1, enemies:[{}]};
+init(fullParty);
+assert.equal(fullParty.enemies[0].hp, 360);
 console.log('Encounter dispatcher, story gym HP/damage and legendary exclusions verified.');

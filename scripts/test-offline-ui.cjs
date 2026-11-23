@@ -22,10 +22,10 @@ console.log('Default eco mode and existing preferences verified.');
 {
   const observers = [];
   class Element {
-    constructor() { this.children = []; this.isConnected = true; this.textContent = ''; }
+    constructor() { this.children = []; this.isConnected = true; this.textContent = ''; this.attributes = {}; }
     appendChild(child) { this.children.push(child); child.isConnected = true; return child; }
     replaceChildren() { this.children.forEach(child => { child.isConnected = false; }); this.children = []; }
-    setAttribute() {}
+    setAttribute(name, value) { this.attributes[name] = value; }
     insertBefore() {}
     querySelector() { return trade; }
   }
@@ -33,17 +33,22 @@ console.log('Default eco mode and existing preferences verified.');
   social.parentNode = new Element();
   const callbacks = {};
   const document = {
-    head: new Element(), body: new Element(),
+    head: new Element(), body: new Element(), documentElement: {lang: 'fr'},
     createElement: () => new Element(),
     getElementById: id => id === 'battle-log' ? log : news,
     querySelector: () => social,
     addEventListener: (name, fn) => { callbacks[name] = fn; },
   };
   class Observer { constructor(fn) { this.fn = fn; observers.push(this); } observe() {} }
-  vm.runInNewContext(source, {document, MutationObserver: Observer, localStorage: {getItem: () => 'saved'}});
+  vm.runInNewContext(source, {document, window: {LANG_PICK: {lang: 'fr'}}, MutationObserver: Observer, localStorage: {getItem: () => 'saved'}});
   callbacks.DOMContentLoaded();
-  log.textContent = 'first'; observers[0].fn();
+  assert.equal(news.children[0].attributes['aria-label'], '战斗日志');
+  assert.equal(news.children[0].attributes.role, 'region');
+  document.documentElement.lang = 'zh-Hant'; observers[0].fn();
+  assert.equal(news.children[0].attributes['aria-label'], '戰鬥日誌');
+  log.textContent = 'first'; observers[1].fn();
   news.replaceChildren();
-  log.textContent = 'second'; observers[0].fn();
+  log.textContent = 'second'; observers[1].fn();
+  assert.equal(news.children[0].attributes['aria-label'], '戰鬥日誌');
   assert.deepEqual(news.children[0].children.map(row => row.textContent), ['first', 'second']);
 }

@@ -35,7 +35,7 @@ const caches = {
   match: async (key, options) => stores.has(options.cacheName) ? cache(options.cacheName).match(key) : undefined,
 };
 vm.runInNewContext(fs.readFileSync('site/sw.js', 'utf8'), {
-  caches, URL, Response, Request, Date: Clock, fetch: (...args) => network(...args),
+  caches, URL, Response, Request: class { constructor(req) { return req; } }, Date: Clock, fetch: (...args) => network(...args),
   self: { addEventListener: (type, fn) => { handlers[type] = fn; }, location: {origin:'https://example.com'},
     clients: {claim: async () => {}, matchAll: async () => []}, skipWaiting: async () => {} },
 });
@@ -49,8 +49,8 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
 (async () => {
   stores.set('other-app', new Map([['image', 'foreign']]));
   stores.set('pc-cache-v16', new Map([['image', 'old-image'], ['script', 'old-script']]));
-  stores.set('pc-cache-v17', new Map([['script', 'new-script']]));
-  stores.set('pc-cache-v18', new Map([['future', 'future']]));
+  stores.set('pc-cache-v18', new Map([['script', 'new-script']]));
+  stores.set('pc-cache-v19', new Map([['future', 'future']]));
   stores.set('pc-cache-v016', new Map([['foreign', 'foreign']]));
   stores.get('pc-cache-v16').set('shared', 'newer');
   // Activation retains only the two most recent older versions, without copying assets.
@@ -68,8 +68,8 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   assert.equal(stores.has('pc-cache-v016'), true);
   assert.equal(stores.has('other-app'), true);
   assert.equal(stores.has('pc-cache-v16'), true);
-  assert.equal(stores.get('pc-cache-v17').has('image'), false);
-  assert.equal(stores.get('pc-cache-v17').get('script'), 'new-script');
+  assert.equal(stores.get('pc-cache-v18').has('image'), false);
+  assert.equal(stores.get('pc-cache-v18').get('script'), 'new-script');
   // Concurrent misses share one refresh, including the fallback lookup.
   now += 60000;
   const concurrent = Array.from({length: 20}, (_, i) => dispatch('fetch', {request: request(`missing-${i}`)}));
@@ -97,6 +97,20 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   script = dispatch('fetch', {request: {method:'GET', url:'https://example.com/asset-15', destination:'script'}});
   assert.equal(await script.response, 'old-15');
   await script.done;
+  network = async () => new Response('server error', {status: 503});
+  for (const [path, destination, expected] of [['script', 'script', 'new-script'], ['asset-15', 'style', 'old-15']]) {
+    const failed = dispatch('fetch', {request: {method:'GET', url:`https://example.com/${path}`, destination}});
+    assert.equal(await failed.response, expected);
+    await failed.done;
+  }
+  let failed = dispatch('fetch', {request: {method:'GET', url:'https://example.com/missing-page', mode:'navigate'}});
+  assert.equal((await failed.response).status, 503);
+  await failed.done;
+  network = async () => new Response('not found', {status: 404});
+  failed = dispatch('fetch', {request: {method:'GET', url:'https://example.com/script', destination:'script'}});
+  assert.equal((await failed.response).status, 404);
+  await failed.done;
+  network = async () => { throw Error('offline'); };
   let foreign = dispatch('fetch', {request: request('foreign')});
   assert.equal((await foreign.response).type, 'error');
   await foreign.done;
@@ -117,7 +131,7 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   assert.equal(await event.response, 'late-image');
   release(new Response('fresh-image'));
   await event.done;
-  assert.equal(await stores.get('pc-cache-v17').get('late').clone().text(), 'fresh-image');
+  assert.equal(await stores.get('pc-cache-v18').get('late').clone().text(), 'fresh-image');
   network = async () => { throw Error('offline'); };
   event = dispatch('fetch', {request: request('late')});
   assert.equal(await (await event.response).text(), 'fresh-image');
@@ -128,7 +142,7 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   event = dispatch('fetch', {request: request('quota-miss')});
   assert.equal(await (await event.response).text(), 'network-only');
   await event.done;
-  assert.equal(stores.get('pc-cache-v17').has('quota-miss'), false);
+  assert.equal(stores.get('pc-cache-v18').has('quota-miss'), false);
   event = dispatch('fetch', {request: request('image')});
   assert.equal(await event.response, 'old-image');
   await event.done;

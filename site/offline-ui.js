@@ -20,6 +20,10 @@
     if (!arenaLog || !news || !social || !trade) return false;
     social.parentNode.insertBefore(trade, social);
     social.hidden = true;
+    var labels = {'zh-Hans': '战斗日志', 'zh-Hant': '戰鬥日誌'};
+    function updateLabel() {
+      if (feed) feed.setAttribute('aria-label', labels[document.documentElement.lang] || labels[window.LANG_PICK && window.LANG_PICK.lang] || labels['zh-Hans']);
+    }
     var records = [];
     var feed;
     function install() {
@@ -27,7 +31,8 @@
       news.replaceChildren();
       feed = document.createElement('div');
       feed.className = 'news-feed';
-      feed.setAttribute('aria-label', '战斗日志');
+      feed.setAttribute('role', 'region');
+      updateLabel();
       news.appendChild(feed);
       records.forEach(addRow);
     }
@@ -49,6 +54,7 @@
       addRow(text);
       while (feed.children.length > 40) feed.firstElementChild.remove();
     }
+    new MutationObserver(updateLabel).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
     new MutationObserver(record).observe(arenaLog, { childList: true, subtree: true, characterData: true });
     new MutationObserver(install).observe(news, { childList: true });
     install();

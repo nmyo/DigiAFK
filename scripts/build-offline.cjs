@@ -22,7 +22,11 @@ fs.mkdirSync(path.join(SITE, 'bundle'), { recursive: true });
 // ---- 1) boot.js 本地化 ----
 let boot = fs.readFileSync(path.join(MIRROR, 'boot.js'), 'utf-8');
 const n = boot.split(CDN).length - 1;
-boot = boot.split(CDN).join(ROOT);
+boot = require('./chinese-only.cjs').patchBoot(boot.split(CDN).join(ROOT));
+// Speed setting 4 maps to the game's 2.5x pace, not 3x.
+const speedButton = '<button data-speed="4">×3</button>';
+if (boot.split(speedButton).length !== 2) throw new Error('Expected speed button not found exactly once');
+boot = boot.replace(speedButton, '<button data-speed="4">×2.5</button>');
 fs.writeFileSync(path.join(SITE, 'boot.js'), boot);
 console.log('boot.js: 替换', n, '处 CDN 引用');
 
@@ -151,6 +155,7 @@ for (const f of fs.readdirSync(path.join(MIRROR, 'bundle'))) {
     console.log('vendor:', f, '→ 已追加游客 mock');
   }
 }
+require('./chinese-only.cjs').patchApp(path.join(SITE, 'bundle', 'app.c74e480997.js'));
 require('./patch-link-evolutions.cjs');
 require('./patch-legendary-difficulty.cjs').patchBundle();
 console.log('构建完成');
