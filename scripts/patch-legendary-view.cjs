@@ -38,7 +38,7 @@ const changes = [
     "g(\"[data-lz-view]\",Va).forEach(te=>te.onclick=()=>{te.dataset.lzView!==Ut&&(Ut===\"zone\"&&(ba=te.closest(\".mp-det\").offsetHeight),Ut=te.dataset.lzView,es())});const aa=String(M)[0]===\"Z\"&&a(\".mp-det\",Va);aa&&Ut===\"teams\"&&ba&&Object.assign(aa.style,{flex:`0 0 ${ba}px`,minHeight:\"0\"}),t.UI.lbBind(Va,D)",
     "t.UI.lbBind(Va,D)"
   ]
-];
+].map(([before, after]) => [before.replace(/\r\n/g, '\n'), after.replace(/\r\n/g, '\n')]);
 function patchLegendaryView(source) {
   for (const [oldText, newText] of changes) {
     const oldCount = source.split(oldText).length - 1, newCount = source.split(newText).length - 1;

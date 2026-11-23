@@ -62,3 +62,13 @@ for (const weather of ['sun', 'rain', 'storm']) {
   assert.equal(pool[1].w, 20);
 }
 console.log('Real weather configuration and multiplier independence tests passed.');
+
+const { patchEncounterPanel } = require('./patch-encounter-panel.cjs');
+assert.equal(patchEncounterPanel(source), source);
+assert.throws(() => patchEncounterPanel('broken'), /Unexpected encounter panel seam/);
+const panel = source.slice(source.indexOf('const O=ve.zonePool(qt,z.chapter,!0,null,!0,!0)'), source.indexOf('async function Dn(o)'));
+assert(!panel.includes('zone-weather'), 'encounter panel must not show weather');
+assert(!panel.includes('zone-cond'), 'encounter panel must not group species by conditions');
+assert(!panel.includes('zone-pct'), 'encounter panel must not show encounter percentages');
+assert(panel.includes('zone-uncaught'), 'encounter panel must mark uncatalogued species');
+console.log('Encounter panel displays species and uncatalogued status only.');

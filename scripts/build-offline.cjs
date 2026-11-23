@@ -1,79 +1,40 @@
-/* 生成离线单机版：
- * 1) site/boot.js        —— 原 boot.js，仅把 CDN 域名替换为「当前部署根地址」
- * 2) site/bundle/vendor-supabase.*.js —— 独立本地游客适配器
- *    （createClient 被替换为「永远未登录 + 全部调用空转」的客户端）
- * 原站 JS 的任何逻辑都不修改。
- */
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { spawnSync } = require('child_process');
+// Validate and apply offline patches to the repository's existing local bundle.
+// No upstream mirror is needed; site/ is the maintained build baseline.
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const { spawnSync } = require('node:child_process');
 
 const SITE = path.join(__dirname, '..', 'site');
-// Pass the original mirror directory as the first argument.
-const MIRROR = path.resolve(process.argv[2] || path.join(__dirname, '..', '..', 'pokecatch-mirror'));
-if (!fs.existsSync(path.join(MIRROR, 'boot.js')) || !fs.existsSync(path.join(MIRROR, 'bundle'))) {
-  throw new Error(`Mirror not found at ${MIRROR}; pass its path as the first argument`);
-}
-const CDN = 'https://pokecatch-online.pages.dev/';
-// 部署根目录（支持子路径，如 GitHub Pages /DigiAFK/）
-const ROOT = '"+(new URL(".",location))+"';
-
-// Only the pinned boot and assets are compatible with the existing offline patches.
-const pinned = ['app.c74e480997.js', 'app.9258c082d1.css', 'vendor-supabase.8596965fe9.js', 'lang-zh-Hans.2a57ab3291.js', 'lang-zh-Hant.ff6e3ad523.js'];
-const mirrorBoot = fs.readFileSync(path.join(MIRROR, 'boot.js'), 'utf-8');
-const refs = [...new Set(mirrorBoot.match(/bundle\/(?:app\.[\w.-]+\.(?:js|css)|vendor-supabase\.[\w.-]+\.js|lang-zh-(?:Hans|Hant)\.[\w.-]+\.js)/g) || [])].sort();
-if (JSON.stringify(refs) !== JSON.stringify(pinned.map(f => 'bundle/' + f).sort())) throw new Error('Incompatible mirror boot bundle references');
-for (const f of pinned) {
-  for (const dir of [MIRROR, SITE]) {
-    if (!fs.statSync(path.join(dir, 'bundle', f), { throwIfNoEntry: false })?.isFile()) throw new Error(`Missing compatible bundle asset: ${path.join(dir, 'bundle', f)}`);
-  }
-}
-for (const f of pinned.filter(f => f.endsWith('.css') || f.startsWith('lang-'))) {
-  if (!fs.readFileSync(path.join(MIRROR, 'bundle', f)).equals(fs.readFileSync(path.join(SITE, 'bundle', f)))) throw new Error(`Incompatible bundle asset: ${f}`);
-}
-
-// Run all patchers against a private copy before publishing any output.
+const files = ['boot.js', 'bundle/app.c74e480997.js', 'bundle/vendor-supabase.8596965fe9.js', 'version.json'];
 if (process.env.DIGIAFK_BUILD_STAGED !== '1') {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'digiafk-build-'));
   try {
-    fs.cpSync(path.join(__dirname), path.join(temp, 'scripts'), { recursive: true });
+    fs.cpSync(__dirname, path.join(temp, 'scripts'), { recursive: true });
     fs.cpSync(SITE, path.join(temp, 'site'), { recursive: true });
-    const result = spawnSync(process.execPath, [path.join(temp, 'scripts', 'build-offline.cjs'), MIRROR], {
+    const result = spawnSync(process.execPath, [path.join(temp, 'scripts', 'build-offline.cjs')], {
       env: { ...process.env, DIGIAFK_BUILD_STAGED: '1' }, encoding: 'utf8'
     });
     if (result.stdout) process.stdout.write(result.stdout);
     if (result.stderr) process.stderr.write(result.stderr);
     if (result.status !== 0) throw new Error('Staged offline build failed');
-    for (const file of ['boot.js', 'bundle/app.c74e480997.js', 'bundle/vendor-supabase.8596965fe9.js', 'version.json']) {
-      fs.copyFileSync(path.join(temp, 'site', file), path.join(SITE, file));
-    }
+    for (const file of files) fs.copyFileSync(path.join(temp, 'site', file), path.join(SITE, file));
   } finally { fs.rmSync(temp, { recursive: true, force: true }); }
   process.exit(0);
 }
 
-fs.mkdirSync(path.join(SITE, 'bundle'), { recursive: true });
-
-// ---- 1) boot.js 本地化 ----
-let boot = mirrorBoot;
-const n = boot.split(CDN).length - 1;
-boot = require('./chinese-only.cjs').patchBoot(boot.split(CDN).join(ROOT));
-// Speed setting 4 maps to the game's 2.5x pace, not 3x.
+const bootPath = path.join(SITE, 'boot.js');
+let boot = require('./chinese-only.cjs').patchBoot(fs.readFileSync(bootPath, 'utf8'));
 const speedButton = '<button data-speed="4">×3</button>';
-if (boot.split(speedButton).length !== 2) throw new Error('Expected speed button not found exactly once');
-boot = boot.replace(speedButton, '<button data-speed="4">×2.5</button>');
-fs.writeFileSync(path.join(SITE, 'boot.js'), boot);
-console.log('boot.js: 替换', n, '处 CDN 引用');
-
-// ---- 2) 本地游客适配器 ----
-const adapter = fs.readFileSync(path.join(__dirname, 'offline-supabase.js'), 'utf-8');
-for (const f of fs.readdirSync(path.join(MIRROR, 'bundle'))) {
-  if (f === 'vendor-supabase.8596965fe9.js') {
-    fs.writeFileSync(path.join(SITE, 'bundle', f), adapter);
-    console.log('vendor:', f, '→ 本地游客适配器');
-  }
+const updatedSpeedButton = '<button data-speed="4">×2.5</button>';
+if (boot.split(speedButton).length === 2 && !boot.includes(updatedSpeedButton)) {
+  boot = boot.replace(speedButton, '<button data-speed="4">×2.5</button>');
+} else if (boot.includes(speedButton) || boot.split(updatedSpeedButton).length !== 2) {
+  throw new Error('Unexpected speed button');
 }
-require('./chinese-only.cjs').patchApp(path.join(SITE, 'bundle', 'app.c74e480997.js'));
+fs.writeFileSync(bootPath, boot);
+fs.copyFileSync(path.join(__dirname, 'offline-supabase.js'), path.join(SITE, 'bundle/vendor-supabase.8596965fe9.js'));
+require('./chinese-only.cjs').patchApp(path.join(SITE, 'bundle/app.c74e480997.js'));
 require('./patch-link-evolutions.cjs');
 require('./patch-shop-prices.cjs');
 require('./patch-legendary-difficulty.cjs').patchBundle();
@@ -82,11 +43,8 @@ require('./patch-legendary-healing.cjs').patchBundle();
 require('./patch-team-interaction.cjs').patchBundle();
 require('./patch-legendary-view.cjs').patchBundle();
 require('./patch-wild-weather.cjs').patchBundle();
-console.log('构建完成');
-
-// 本地开发用的版本文件（部署时 scripts/deploy-pages.sh 会覆盖为唯一构建号）
-const verPath = path.join(SITE, 'version.json');
-if (!fs.existsSync(verPath)) {
-  fs.writeFileSync(verPath, JSON.stringify({ v: 'dev' }) + '\n');
-  console.log('version.json: 已生成（dev）');
-}
+require('./patch-encounter-panel.cjs').patchBundle();
+require('./patch-unown-translation.cjs').patchBundle();
+const version = path.join(SITE, 'version.json');
+if (!fs.existsSync(version)) fs.writeFileSync(version, JSON.stringify({ v: 'dev' }) + '\n');
+console.log('Local offline build complete.');
