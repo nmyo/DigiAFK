@@ -20,13 +20,13 @@ for (const [lang, file] of [['zh-Hans', 'lang-zh-Hans.2a57ab3291.js'], ['zh-Hant
   assert.equal(t.POKEDEX.length, 29);
   for (const mon of t.POKEDEX.slice(0, 28)) {
     assert.equal(mon.genus, translated[1]);
-    assert.equal(mon.flavor, lang === 'zh-Hant' ? '暫無圖鑑介紹。' : '暂无图鉴介绍。');
+    assert.equal(mon.flavor, lang === 'zh-Hant' ? '無介紹' : '无介绍');
   }
   assert.equal(t.POKEDEX[28].flavor, t.I18N_DATA[lang].pokemon[1][2]);
   for (const [id, entry] of Object.entries(t.I18N_DATA[lang].pokemon)) {
     const mon = { id: +id, name: 'old', genus: 'old', flavor: 'English description' };
     vm.runInNewContext(localization[0], { t: { POKEDEX: [mon] }, et: t.I18N_DATA[lang], ue: lang });
-    assert.equal(mon.flavor, entry[2] || (lang === 'zh-Hant' ? '暫無圖鑑介紹。' : '暂无图鉴介绍。'));
+    assert.equal(mon.flavor, entry[2] || (lang === 'zh-Hant' ? '無介紹' : '无介绍'));
   }
 }
 assert.throws(() => patchUnownTranslation('unexpected bundle'), /seam/);

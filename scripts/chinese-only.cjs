@@ -22,8 +22,10 @@ function patchApp(file) {
   if (app.includes(old)) app = app.replace(old, replacement);
   else if (!app.includes(replacement)) throw new Error('Language names not found');
   const oldFlavor = 'Ot.flavor=ce[2]||Ot.flavor';
-  const chineseFlavor = 'Ot.flavor=ce[2]||(ue==="zh-Hant"?"暫無圖鑑介紹。":"暂无图鉴介绍。")';
+  const previousFlavor = 'Ot.flavor=ce[2]||(ue==="zh-Hant"?"暫無圖鑑介紹。":"暂无图鉴介绍。")';
+  const chineseFlavor = 'Ot.flavor=ce[2]||(ue==="zh-Hant"?"無介紹":"无介绍")';
   if (app.includes(oldFlavor)) app = app.replace(oldFlavor, chineseFlavor);
+  else if (app.includes(previousFlavor)) app = app.replace(previousFlavor, chineseFlavor);
   else if (!app.includes(chineseFlavor)) throw new Error('Pokédex flavor localization not found');
   fs.writeFileSync(file, app);
 }
