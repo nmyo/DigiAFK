@@ -158,6 +158,7 @@ for (const f of fs.readdirSync(path.join(MIRROR, 'bundle'))) {
 require('./chinese-only.cjs').patchApp(path.join(SITE, 'bundle', 'app.c74e480997.js'));
 require('./patch-link-evolutions.cjs');
 require('./patch-legendary-difficulty.cjs').patchBundle();
+require('./patch-league-healing.cjs').patchBundle();
 console.log('构建完成');
 
 // 本地开发用的版本文件（部署时 scripts/deploy-pages.sh 会覆盖为唯一构建号）
