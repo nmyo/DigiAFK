@@ -19,6 +19,9 @@ for (const [id,to] of pairs) {
   assert.ok(evo.gt(mon), `${id} level evolution`);
   if (![64,67,75,93].includes(id)) assert.ok(evolutions[id].some(r=>r.to===to&&r.item), `${id} item retained`);
 }
+// The upstream UI excludes link-cable from item evolution choices; it marks trades.
+assert.ok(source.includes('g.itemEvolutions(Ke).filter(xn=>xn.item!=="link-cable")'));
+assert.ok(source.includes('y.item==="link-cable"&&!Ut('));
 assert.deepEqual(Array.from(evo.Me({id:366,level:46,uid:'test'}), r=>r.to), [367,368]);
 assert.ok(source.includes('if(We.length>1){const Ke=await $a(') && source.includes('...We.map(Rt=>({label:'));
 const priceCode = between('const Ne=c=>', 'function _a(');

@@ -1,7 +1,8 @@
     /* 热更新：轮询 version.json，发现新构建后提示刷新。
        标题页（无进度风险）直接自动刷新，游戏内则显示角标由玩家点击。 */
     (function () {
-      var cur = null, shown = false;
+      var build = document.querySelector('meta[name="pc-build"]');
+      var cur = build ? build.content : null, shown = false;
       function banner() {
         if (shown || !document.body || document.getElementById('pc-update')) return;
         shown = true;
@@ -40,7 +41,9 @@
       document.addEventListener('visibilitychange', function () { if (!document.hidden) check(); });
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', function (e) {
-          if (e.data && e.data.type === 'pc-updated' && atTitle()) location.reload();
+          if (!e.data || e.data.type !== 'pc-updated') return;
+          if (atTitle()) location.reload();
+          else banner();
         });
       }
     })();

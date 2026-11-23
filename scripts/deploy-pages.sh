@@ -14,6 +14,8 @@ cp -r site/. "$TMP/"
 # 热更新版本号：每次部署唯一，页面轮询 version.json 即可感知新构建
 BUILD="$(date +%s)-$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo dev)"
 printf '{"v":"%s","at":"%s"}\n' "$BUILD" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$TMP/version.json"
+# Embed the page's own build so a failed first version request cannot lose its baseline.
+BUILD="$BUILD" node -e 'const fs=require("fs"), p=process.argv[1], s=fs.readFileSync(p,"utf8"), marker="<head>"; if (!s.includes(marker)) throw Error("index.html head not found"); fs.writeFileSync(p,s.replace(marker,marker+"<meta name=\"pc-build\" content=\""+process.env.BUILD+"\">"));' "$TMP/index.html"
 echo "build id: $BUILD"
 cd "$TMP"
 

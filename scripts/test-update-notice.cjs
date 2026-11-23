@@ -11,7 +11,7 @@ async function scenario(title) {
     body: { appendChild(node) { button = node; } },
     getElementById() { return button; },
     createElement() { return { style: {} }; },
-    querySelector() { return { checkVisibility: () => title }; },
+    querySelector(selector) { return selector === 'meta[name="pc-build"]' ? null : { checkVisibility: () => title }; },
     addEventListener() {}
   };
   const window = {};
@@ -23,4 +23,22 @@ async function scenario(title) {
   if (title) { assert.equal(reloads, 1); assert.equal(button, undefined); message({data:{type:'pc-updated'}}); assert.equal(reloads, 2); }
   else { assert.equal(reloads, 0); assert.equal(button.id, 'pc-update'); button.onclick(); assert.equal(reloads, 1); }
 }
-(async () => { await scenario(true); await scenario(false); console.log('Update notice title and game checks passed.'); })().catch(e => { console.error(e); process.exitCode = 1; });
+async function failedFirstRequest() {
+  let calls = 0, interval, button;
+  const document = {
+    readyState: 'complete', hidden: false,
+    body: { appendChild(node) { button = node; } },
+    getElementById() { return button; }, createElement() { return { style: {} }; },
+    querySelector(selector) { return selector === 'meta[name="pc-build"]' ? { content: 'old' } : null; },
+    addEventListener() {}
+  };
+  const window = {};
+  vm.runInNewContext(source.slice(start), { document, window, navigator: {}, location: { reload() {} },
+    fetch: async () => { if (++calls === 1) throw Error('offline'); return { ok: true, json: async () => ({ v: 'new' }) }; },
+    setInterval(fn) { interval = fn; }, Date });
+  await new Promise(setImmediate);
+  assert.equal(window.__pcHot.state(), 'old');
+  interval(); await new Promise(setImmediate);
+  assert.equal(button.id, 'pc-update');
+}
+(async () => { await scenario(true); await scenario(false); await failedFirstRequest(); console.log('Update notice title, game and failed initial request checks passed.'); })().catch(e => { console.error(e); process.exitCode = 1; });
