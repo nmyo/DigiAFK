@@ -6,7 +6,7 @@ const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 
 const SITE = path.join(__dirname, '..', 'site');
-const files = ['boot.js', 'bundle/app.c74e480997.js', 'bundle/vendor-supabase.8596965fe9.js', 'version.json'];
+const files = ['boot.js', 'bundle/app.c74e480997.js', 'bundle/vendor-supabase.8596965fe9.js', 'bundle/lang-zh-Hans.2a57ab3291.js', 'bundle/lang-zh-Hant.ff6e3ad523.js', 'version.json'];
 if (process.env.DIGIAFK_BUILD_STAGED !== '1') {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'digiafk-build-'));
   try {
@@ -35,6 +35,9 @@ if (boot.split(speedButton).length === 2 && !boot.includes(updatedSpeedButton)) 
 fs.writeFileSync(bootPath, boot);
 fs.copyFileSync(path.join(__dirname, 'offline-supabase.js'), path.join(SITE, 'bundle/vendor-supabase.8596965fe9.js'));
 require('./chinese-only.cjs').patchApp(path.join(SITE, 'bundle/app.c74e480997.js'));
+for (const [lang, file] of [['zh-Hans', 'lang-zh-Hans.2a57ab3291.js'], ['zh-Hant', 'lang-zh-Hant.ff6e3ad523.js']]) {
+  require('./chinese-only.cjs').patchTranslations(path.join(SITE, 'bundle', file), lang);
+}
 require('./patch-link-evolutions.cjs');
 require('./patch-shop-prices.cjs');
 require('./patch-legendary-difficulty.cjs').patchBundle();
@@ -44,6 +47,7 @@ require('./patch-team-interaction.cjs').patchBundle();
 require('./patch-legendary-view.cjs').patchBundle();
 require('./patch-wild-weather.cjs').patchBundle();
 require('./patch-encounter-panel.cjs').patchBundle();
+require('./patch-detail-evolution-region.cjs');
 require('./patch-unown-translation.cjs').patchBundle();
 require('./patch-offline-entries.cjs').patch();
 const version = path.join(SITE, 'version.json');

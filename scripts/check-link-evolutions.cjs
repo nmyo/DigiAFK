@@ -14,6 +14,9 @@ for (const [from, to] of [[64, 65], [67, 68], [75, 76], [93, 94]]) {
   assert.equal(46 >= rule.level, true);
   assert.equal(50 >= rule.level, true);
 }
-assert.equal(evolutions[95].find((entry) => entry.to === 208).item, 'metal-coat');
-assert.equal(evolutions[61].find((entry) => entry.to === 186).item, 'kings-rock');
+for (const [from, to, item] of [[61,186,'kings-rock'],[79,199,'kings-rock'],[95,208,'metal-coat'],[123,212,'metal-coat'],[117,230,'dragon-scale'],[137,233,'up-grade'],[112,464,'protector'],[125,466,'electirizer'],[126,467,'magmarizer'],[356,477,'reaper-cloth'],[366,367,'deep-sea-tooth'],[366,368,'deep-sea-scale'],[349,350,'prism-scale']]) {
+  const matching = evolutions[from].filter(entry => entry.to === to);
+  assert.equal(matching.length, 1, `${from} -> ${to} has only its original item route`);
+  assert.equal(matching[0].item, item);
+}
 console.log('Four link-cable evolutions require level 46; item evolutions retained.');

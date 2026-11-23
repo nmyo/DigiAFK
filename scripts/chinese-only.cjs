@@ -28,4 +28,22 @@ function patchApp(file) {
   else if (!app.includes(chineseFlavor)) throw new Error('Pokédex flavor localization not found');
   fs.writeFileSync(file, app);
 }
-module.exports = {patchBoot, patchApp};
+function patchTranslations(file, lang) {
+  const key = "Remplis la condition pour ouvrir la zone, puis affronte le légendaire avec l'équipe de ton choix, ramenée à son niveau (vide : ton équipe d'aventure part). Une Poké Ball part à chaque K.O., avec peu de chances : essais illimités, une seule capture.";
+  const translations = {
+    'zh-Hans': '满足条件解锁区域后，选择队伍挑战传说宝可梦，队伍等级会调整至与其相同（留空则使用冒险队伍）。每次击败它都会投出一颗精灵球，捕获概率较低；可无限尝试，但只能捕获一次。',
+    'zh-Hant': '滿足條件解鎖區域後，選擇隊伍挑戰傳說寶可夢，隊伍等級會調整至與其相同（留空則使用冒險隊伍）。每次擊敗牠都會投出一顆精靈球，捕獲機率較低；可無限嘗試，但只能捕獲一次。',
+  };
+  let text = fs.readFileSync(file, 'utf8');
+  const entries = {
+    [key]: translations[lang],
+    '{name} Nv. {n}': lang === 'zh-Hant' ? '{name} 等級{n}' : '{name} 等级{n}',
+    'Nv. {from} → <b>{to}</b>': lang === 'zh-Hant' ? '等級{from} → <b>{to}</b>' : '等级{from} → <b>{to}</b>',
+  };
+  for (const [source, translation] of Object.entries(entries)) {
+    const marker = `;\n(window.I18N=window.I18N||{})[${JSON.stringify(lang)}][${JSON.stringify(source)}]=${JSON.stringify(translation)};\n`;
+    if (!text.includes(marker)) text += marker;
+  }
+  fs.writeFileSync(file, text);
+}
+module.exports = {patchBoot, patchApp, patchTranslations};

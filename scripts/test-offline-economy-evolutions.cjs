@@ -8,7 +8,8 @@ function between(start, end) {
   return source.slice(i, j);
 }
 const evolutions = vm.runInNewContext('(' + between('t.EVOLUTIONS=', ',t.').slice('t.EVOLUTIONS='.length) + ')');
-const pairs = [[64,65],[67,68],[75,76],[93,94],[61,186],[79,199],[95,208],[123,212],[117,230],[137,233],[112,464],[125,466],[126,467],[356,477],[366,367],[366,368],[349,350]];
+const pairs = [[64,65],[67,68],[75,76],[93,94]];
+const itemPairs = [[61,186],[79,199],[95,208],[123,212],[117,230],[137,233],[112,464],[125,466],[126,467],[356,477],[366,367],[366,368],[349,350]];
 const evoCode = between('Me=c=>(t.EVOLUTIONS', 'const Ct=c=>');
 const evo = vm.runInNewContext(`(()=>{const t={EVOLUTIONS:rules},a={TIME_EVOLUTIONS:{}};const ba=()=>true,Ut=()=>false,xs=()=>[];const ${evoCode};return {Me,gt}})()`, {rules:evolutions});
 for (const [id,to] of pairs) {
@@ -17,12 +18,15 @@ for (const [id,to] of pairs) {
   mon.level=46;
   assert.ok(evo.Me(mon).some(r=>r.to===to), `${id} at 46`);
   assert.ok(evo.gt(mon), `${id} level evolution`);
-  if (![64,67,75,93].includes(id)) assert.ok(evolutions[id].some(r=>r.to===to&&r.item), `${id} item retained`);
+}
+for (const [id,to] of itemPairs) {
+  assert.ok(!evo.Me({id,level:46,uid:'test'}).some(r=>r.to===to), `${id} item evolution is not a level evolution`);
+  assert.ok(evolutions[id].some(r=>r.to===to&&r.item), `${id} item retained`);
 }
 // The upstream UI excludes link-cable from item evolution choices; it marks trades.
 assert.ok(source.includes('g.itemEvolutions(Ke).filter(xn=>xn.item!=="link-cable")'));
 assert.ok(source.includes('y.item==="link-cable"&&!Ut('));
-assert.deepEqual(Array.from(evo.Me({id:366,level:46,uid:'test'}), r=>r.to), [367,368]);
+assert.deepEqual(Array.from(evo.Me({id:366,level:46,uid:'test'}), r=>r.to), []);
 assert.ok(source.includes('if(We.length>1){const Ke=await $a(') && source.includes('...We.map(Rt=>({label:'));
 const priceCode = between('const Ne=c=>', 'function _a(');
 const state = {money:100000, stats:{}, items:{}, adv:{}};

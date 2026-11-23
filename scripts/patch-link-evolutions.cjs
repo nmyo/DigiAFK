@@ -10,7 +10,7 @@ for (const [from, to] of [[64, 65], [67, 68], [75, 76], [93, 94]]) {
   if (source.split(oldRule).length !== 2) throw new Error(`Unexpected evolution rule for ${from}`);
   source = source.replace(oldRule, newRule);
 }
-// Keep item paths, including both Clamperl branches, alongside level choices.
+// Undo previously added level alternatives; keep the original item paths.
 for (const [from, to, item] of [[61,186,'kings-rock'],[79,199,'kings-rock'],[95,208,'metal-coat'],[123,212,'metal-coat'],[117,230,'dragon-scale'],[137,233,'up-grade'],[112,464,'protector'],[125,466,'electirizer'],[126,467,'magmarizer'],[356,477,'reaper-cloth'],[366,367,'deep-sea-tooth'],[366,368,'deep-sea-scale'],[349,350,'prism-scale']]) {
   const oldRule = `{to:${to},item:"${item}"}`;
   const newRule = `${oldRule},{to:${to},level:46}`;
@@ -21,9 +21,10 @@ for (const [from, to, item] of [[61,186,'kings-rock'],[79,199,'kings-rock'],[95,
   const entry = new RegExp(String.raw`(?:^|,)${from}:\[([^\]]*)\]`).exec(table);
   if (!entry) throw new Error(`Evolution entry ${from} not found`);
   const rules = entry[1];
-  if (rules.split(newRule).length === 2 && rules.split(oldRule).length === 2) continue;
-  if (rules.split(oldRule).length !== 2 || rules.includes(`{to:${to},level:46}`)) throw new Error(`Unexpected evolution rule for ${from} -> ${to}`);
-  const updated = entry[0].replace(oldRule, newRule);
+  if (rules.split(oldRule).length !== 2) throw new Error(`Unexpected evolution rule for ${from} -> ${to}`);
+  if (!rules.includes(`{to:${to},level:46}`)) continue;
+  if (rules.split(newRule).length !== 2) throw new Error(`Unexpected level alternative for ${from} -> ${to}`);
+  const updated = entry[0].replace(newRule, oldRule);
   table = table.slice(0, entry.index) + updated + table.slice(entry.index + entry[0].length);
   source = source.slice(0, tableStart) + table + source.slice(tableEnd);
 }
