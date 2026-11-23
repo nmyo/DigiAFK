@@ -10,8 +10,13 @@ async function main() {
   let id = 0;
   const exceptions = [];
   const consoleErrors = [];
+  const resourceFailures = [];
+  const requests = new Map();
+  let checkResources = true;
+  // Player artwork can be loaded by Image or fetch (for frame decoding).
+  const critical = (url, type) => ['Document', 'Script', 'Stylesheet'].includes(type) || /\/assets\/(?:bg\/scenes|pokemon\/art|trainers)\//.test(new URL(url).pathname);
   const pending = new Map();
-  socket.onmessage = ({ data }) => { const msg = JSON.parse(data); if (msg.method === "Runtime.consoleAPICalled" && msg.params.type === "error") consoleErrors.push(msg.params.args.map(x => x.description || x.value).join(" ")); if (msg.method === "Runtime.exceptionThrown") exceptions.push(msg.params.exceptionDetails.text); if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); } };
+  socket.onmessage = ({ data }) => { const msg = JSON.parse(data); const p = msg.params; if (msg.method === 'Network.requestWillBeSent') requests.set(p.requestId, {url:p.request.url, type:p.type}); if (checkResources && msg.method === 'Network.responseReceived' && p.response.status >= 400 && critical(p.response.url, p.type)) resourceFailures.push(`${p.response.status} ${p.response.url}`); if (checkResources && msg.method === 'Network.loadingFailed') { const request = requests.get(p.requestId); if (request && critical(request.url, request.type) && !p.canceled) resourceFailures.push(`${p.errorText} ${request.url}`); } if (msg.method === "Runtime.consoleAPICalled" && p.type === "error") consoleErrors.push(p.args.map(x => x.description || x.value).join(" ")); if (msg.method === "Runtime.exceptionThrown") exceptions.push(p.exceptionDetails.text); if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); } };
   send = async (method, params = {}, targetSession = sessionId) => {
     const response = await new Promise((resolve) => { const n = ++id; const timer = setTimeout(() => { pending.delete(n); resolve({error: new Error(`${method} timeout`)}); }, 5000); pending.set(n, msg => { clearTimeout(timer); resolve(msg); }); socket.send(JSON.stringify({ id: n, method, params, ...(targetSession ? {sessionId: targetSession} : {}) })); });
     assert.ifError(response.error);
@@ -23,6 +28,7 @@ async function main() {
   sessionId = (await send('Target.attachToTarget', { targetId, flatten: true })).result.sessionId;
   await send("Runtime.enable");
   await send("Page.enable");
+  await send("Network.enable");
   await send("Page.navigate", { url: "http://127.0.0.1:8765/" });
   await new Promise((resolve) => setTimeout(resolve, 8000));
   const result = await send('Runtime.evaluate', { returnByValue: true, expression: `(() => {
@@ -83,16 +89,36 @@ async function main() {
   await send('Runtime.evaluate', {expression:`(() => {const form=document.querySelector('.lab-name'); if(!form) throw Error('name form missing'); form.requestSubmit()})()`});
   await new Promise(resolve=>setTimeout(resolve,2000));
   for(let i=0;i<10;i++) { await send('Runtime.evaluate',{expression:`document.querySelector('.chen-text')?.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))`}); await new Promise(resolve=>setTimeout(resolve,500)); }
-  const replay = await send('Runtime.evaluate', {returnByValue:true,expression:`(() => {document.querySelector('[data-screen="cinematics"]').click(); const root=document.querySelector('#cinematics-root'), unlocked=root.querySelector('[data-cine]'), locked=root.querySelector('button.lock'); if(!unlocked||!locked) throw Error('unlocked/locked fixture cards missing'); locked.click(); const before=!!document.querySelector('.legend-intro.replay'); unlocked.click(); return {active:document.querySelector('#screen-cinematics').classList.contains('active'),locked:locked.disabled,lockedHasKey:locked.hasAttribute('data-cine'),before,replaying:!!document.querySelector('.legend-intro.replay')};})()`});
+  await send('Runtime.evaluate', {expression:`window.introMessages=[]; window.addEventListener('message', e => { if(e.source === window.smokeIntroFrame && e.data?.legendIntro) window.introMessages.push(e.data.legendIntro) })`});
+  const replay = await send('Runtime.evaluate', {returnByValue:true,expression:`(() => {document.querySelector('[data-screen="cinematics"]').click(); const root=document.querySelector('#cinematics-root'), unlocked=root.querySelector('[data-cine]'), locked=root.querySelector('button.lock'); if(!unlocked||!locked) throw Error('unlocked/locked fixture cards missing'); locked.click(); const before=!!document.querySelector('.legend-intro.replay'); unlocked.click(); window.smokeIntroFrame=document.querySelector('.legend-intro.replay iframe').contentWindow; return {active:document.querySelector('#screen-cinematics').classList.contains('active'),locked:locked.disabled,lockedHasKey:locked.hasAttribute('data-cine'),before,replaying:!!document.querySelector('.legend-intro.replay')};})()`});
   assert.deepEqual(replay.result.result.value,{active:true,locked:true,lockedHasKey:false,before:false,replaying:true});
-  // The intro document is absent locally; simulate its completion message to test cleanup.
+  // Wait for the real player handshake and completion, without skipping.
   await send('Runtime.evaluate', {expression:`window.smokeGalleryCard = document.querySelector('#cinematics-root [data-cine]')`});
-  await send('Runtime.evaluate', {expression:`window.dispatchEvent(new MessageEvent('message', {source:document.querySelector('.legend-intro.replay iframe').contentWindow, data:{legendIntro:'done'}}))`});
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  for (let i=0;i<80;i++) {
+    const playing = await send('Runtime.evaluate', {returnByValue:true, expression:`!!document.querySelector('.legend-intro.replay')`});
+    if (!playing.result.result.value) break;
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
   const completed = await send('Runtime.evaluate', {returnByValue:true, expression:`(() => ({overlay:!!document.querySelector('.legend-intro.replay'), active:document.querySelector('#screen-cinematics').classList.contains('active'), unlocked:!!document.querySelector('#cinematics-root [data-cine]'), locked:!!document.querySelector('#cinematics-root button.lock:disabled'), rendered:!window.smokeGalleryCard.isConnected}))()`});
+  const messages = (await send('Runtime.evaluate', {returnByValue:true, expression:`window.introMessages`})).result.result.value;
+  assert.deepEqual(messages, ['loaded','ready','done'], 'only the target iframe sends the complete handshake without errors');
   assert.deepEqual(completed.result.result.value, {overlay:false, active:true, unlocked:true, locked:true, rendered:true}, 'completion callback restores and re-renders the gallery');
   await send('Runtime.evaluate', { expression: `document.querySelector('#options-btn').click()` });
   await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.deepEqual(resourceFailures, [], 'critical resources load successfully');
+  // Exercise the actual CDP error path for both Image and fetch resource types.
+  const missingAssets = ['/assets/pokemon/art/smoke-missing.gif', '/assets/trainers/smoke-missing.png'];
+  await send('Runtime.evaluate', { awaitPromise: true, expression: `(async () => { await Promise.all([fetch(${JSON.stringify(missingAssets[0])}), new Promise(resolve => { const image = new Image(); image.onload = image.onerror = resolve; image.src = ${JSON.stringify(missingAssets[1])}; })]); })()` });
+  await new Promise(resolve => setTimeout(resolve, 200));
+  for (const asset of missingAssets) assert.ok(resourceFailures.some(failure => failure.includes(asset)), `missing asset detected: ${asset}`);
+  resourceFailures.length = 0;
+  // The intentionally invalid scene URL may fail to load; it must never become markup.
+  checkResources = false;
+  const payload = '\"><img src=x onerror="parent.smokeXss=1">';
+  await send('Runtime.evaluate', {expression:`(() => { window.smokeXss=0; const f=document.createElement('iframe'); f.id='smoke-xss'; f.src='/intros/legend-intros.html#'+new URLSearchParams({player:'1',mon:'latias',hold:'1',scene:${JSON.stringify(payload)}}); document.body.appendChild(f); })()`});
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  const xss = await send('Runtime.evaluate', {returnByValue:true, expression:`(() => {const doc=document.querySelector('#smoke-xss').contentDocument, select=doc.querySelector('#scene'); return {executed:window.smokeXss, value:select.value, injected:!!select.querySelector('img'), option:select.options[0].value};})()`});
+  assert.deepEqual(xss.result.result.value, {executed:0, value:payload, injected:false, option:payload}, 'scene remains an option value, not HTML');
   assert.deepEqual(exceptions, [], 'no uncaught runtime exceptions');
   console.log('Browser smoke test passed:', state, 'battle log updated');
   } finally {

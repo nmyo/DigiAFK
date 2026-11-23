@@ -1,8 +1,9 @@
-// Check literal local image references in the shipped game bundles.
+// Check literal local image references in the shipped game bundles and intro player.
+// Interpolated paths and scene names in data tables are not resolved by this check.
 const fs = require('fs');
 const path = require('path');
 const site = path.join(__dirname, '..', 'site');
-const files = ['bundle/app.c74e480997.js', 'bundle/app.9258c082d1.css'];
+const files = ['bundle/app.c74e480997.js', 'bundle/app.9258c082d1.css', 'intros/legend-intros.html'];
 const references = new Set();
 for (const file of files) {
   const text = fs.readFileSync(path.join(site, file), 'utf8');

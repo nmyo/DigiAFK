@@ -49,8 +49,8 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
 (async () => {
   stores.set('other-app', new Map([['image', 'foreign']]));
   stores.set('pc-cache-v16', new Map([['image', 'old-image'], ['script', 'old-script']]));
-  stores.set('pc-cache-v19', new Map([['script', 'new-script']]));
-  stores.set('pc-cache-v20', new Map([['future', 'future']]));
+  stores.set('pc-cache-v20', new Map([['script', 'new-script']]));
+  stores.set('pc-cache-v21', new Map([['future', 'future']]));
   stores.set('pc-cache-v016', new Map([['foreign', 'foreign']]));
   stores.get('pc-cache-v16').set('shared', 'newer');
   // Activation retains only the two most recent older versions, without copying assets.
@@ -64,12 +64,12 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   assert.equal(stores.has('pc-cache-v1'), false);
   assert.equal(stores.has('pc-cache-v14'), false);
   assert.equal(stores.has('pc-cache-v15'), true);
-  assert.equal(stores.has('pc-cache-v19'), true);
+  assert.equal(stores.has('pc-cache-v20'), true);
   assert.equal(stores.has('pc-cache-v016'), true);
   assert.equal(stores.has('other-app'), true);
   assert.equal(stores.has('pc-cache-v16'), true);
-  assert.equal(stores.get('pc-cache-v19').has('image'), false);
-  assert.equal(stores.get('pc-cache-v19').get('script'), 'new-script');
+  assert.equal(stores.get('pc-cache-v20').has('image'), false);
+  assert.equal(stores.get('pc-cache-v20').get('script'), 'new-script');
   // Concurrent misses share one refresh, including the fallback lookup.
   now += 60000;
   const concurrent = Array.from({length: 20}, (_, i) => dispatch('fetch', {request: request(`missing-${i}`)}));
@@ -106,8 +106,8 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   let failed = dispatch('fetch', {request: {method:'GET', url:'https://example.com/missing-page', mode:'navigate'}});
   assert.equal((await failed.response).status, 503);
   await failed.done;
-  stores.get('pc-cache-v19').set('page', 'plain-page');
-  stores.get('pc-cache-v19').set('page?exact=1', 'exact-page');
+  stores.get('pc-cache-v20').set('page', 'plain-page');
+  stores.get('pc-cache-v20').set('page?exact=1', 'exact-page');
   stores.get('pc-cache-v16').set('old-page', 'old-page-response');
   for (const [path, expected] of [['page?x=1', 'plain-page'], ['page?exact=1', 'exact-page'], ['old-page?x=1', 'old-page-response']]) {
     const navigation = dispatch('fetch', {request: {method:'GET', url:'https://example.com/' + path, mode:'navigate'}});
@@ -146,7 +146,7 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   assert.equal(await event.response, 'late-image');
   release(new Response('fresh-image'));
   await event.done;
-  assert.equal(await stores.get('pc-cache-v19').get('late').clone().text(), 'fresh-image');
+  assert.equal(await stores.get('pc-cache-v20').get('late').clone().text(), 'fresh-image');
   network = async () => { throw Error('offline'); };
   event = dispatch('fetch', {request: request('late')});
   assert.equal(await (await event.response).text(), 'fresh-image');
@@ -157,7 +157,7 @@ const request = path => ({method:'GET', url:`https://example.com/${path}`, desti
   event = dispatch('fetch', {request: request('quota-miss')});
   assert.equal(await (await event.response).text(), 'network-only');
   await event.done;
-  assert.equal(stores.get('pc-cache-v19').has('quota-miss'), false);
+  assert.equal(stores.get('pc-cache-v20').has('quota-miss'), false);
   event = dispatch('fetch', {request: request('image')});
   assert.equal(await event.response, 'old-image');
   await event.done;
