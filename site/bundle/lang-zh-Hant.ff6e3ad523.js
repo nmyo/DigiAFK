@@ -5,3 +5,9 @@
 (window.I18N=window.I18N||{})["zh-Hant"]["{name} Nv. {n}"]="{name} 等級{n}";
 ;
 (window.I18N=window.I18N||{})["zh-Hant"]["Nv. {from} → <b>{to}</b>"]="等級{from} → <b>{to}</b>";
+;
+(window.I18N=window.I18N||{})["zh-Hant"]["Remplis la condition pour ouvrir la zone, puis affronte le légendaire avec l'équipe de ton choix, ramenée à son niveau (vide : ton équipe d'aventure part). Une Poké Ball part à chaque K.O., avec peu de chances : essais illimités, une seule capture."]="滿足條件解鎖區域後，選擇隊伍挑戰傳說寶可夢，隊伍等級會調整至與其相同（留空則使用冒險隊伍）。每次擊敗牠都會投出一顆精靈球，捕獲機率較低；可無限嘗試，但只能捕獲一次。";
+;
+(window.I18N=window.I18N||{})["zh-Hant"]["{name} Nv. {n}"]="{name} 等級{n}";
+;
+(window.I18N=window.I18N||{})["zh-Hant"]["Nv. {from} → <b>{to}</b>"]="等級{from} → <b>{to}</b>";

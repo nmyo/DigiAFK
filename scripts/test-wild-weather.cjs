@@ -18,12 +18,12 @@ for (const weather of ['sun','rain','storm']) {
   context.t.WEATHER.current = () => weather;
   const pool = context.vt([{id:1,min:2,max:5,w:10}], node, 0);
   assert(pool.some(x => x.id === 7 && x.w > 0 && !x.off));
-  assert(pool.some(x => x.id === 8 && x.off));
+  assert(pool.some(x => x.id === 8 && x.w > 0 && !x.off));
   const entries = context.habitat({base:{1:10,2:10},night:{2:0,3:4},rain:{4:6,1:0,144:5},storm:{4:10,5:2}}, node, 0);
   assert(entries.some(x => x.id === 4 && x.w === 10));
   assert(entries.some(x => x.id === 5 && x.w === 2));
   assert(entries.some(x => x.id === 1 && x.w === 10));
-  assert(entries.some(x => x.id === 3 && x.off));
+  assert(entries.some(x => x.id === 3 && x.w > 0 && !x.off));
   assert(!entries.some(x => x.id === 144));
 }
 console.log('Wild weather pool and rebuild seam tests passed.');

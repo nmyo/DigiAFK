@@ -5,3 +5,9 @@
 (window.I18N=window.I18N||{})["zh-Hans"]["{name} Nv. {n}"]="{name} 等级{n}";
 ;
 (window.I18N=window.I18N||{})["zh-Hans"]["Nv. {from} → <b>{to}</b>"]="等级{from} → <b>{to}</b>";
+;
+(window.I18N=window.I18N||{})["zh-Hans"]["Remplis la condition pour ouvrir la zone, puis affronte le légendaire avec l'équipe de ton choix, ramenée à son niveau (vide : ton équipe d'aventure part). Une Poké Ball part à chaque K.O., avec peu de chances : essais illimités, une seule capture."]="满足条件解锁区域后，选择队伍挑战传说宝可梦，队伍等级会调整至与其相同（留空则使用冒险队伍）。每次击败它都会投出一颗精灵球，捕获概率较低；可无限尝试，但只能捕获一次。";
+;
+(window.I18N=window.I18N||{})["zh-Hans"]["{name} Nv. {n}"]="{name} 等级{n}";
+;
+(window.I18N=window.I18N||{})["zh-Hans"]["Nv. {from} → <b>{to}</b>"]="等级{from} → <b>{to}</b>";

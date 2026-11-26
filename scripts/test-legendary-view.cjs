@@ -1,8 +1,11 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const {changes, patchLegendaryView} = require('./patch-legendary-view.cjs');
-const source = fs.readFileSync('site/bundle/app.c74e480997.js', 'utf8');
+const raw = fs.readFileSync('site/bundle/app.c74e480997.js', 'utf8');
+assert.equal(patchLegendaryView(raw), raw);
+const source = raw.replace(/\r\n/g, '\n');
 assert.equal(patchLegendaryView(source), source);
+assert.equal(patchLegendaryView(source.replace(/\n/g, '\r\n')), source.replace(/\n/g, '\r\n'));
 const original = [...changes].reverse().reduce((s, [oldText, newText]) => {
   assert.equal(s.split(newText).length - 1, 1);
   return s.replace(newText, oldText);

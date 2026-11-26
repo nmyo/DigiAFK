@@ -9,6 +9,8 @@ const replacement = `const ut=[...O,...Se],k=ut.filter(l=>ns(l.id)).length,r=(qt
 // Use a dedicated marker rather than displaying encounter percentages.
 const output = replacement.replace('zone-pct zone-uncaught-label', 'zone-uncaught-label');
 function patchEncounterPanel(source) {
+  const crlf = source.includes('\r\n');
+  if (crlf) return patchEncounterPanel(source.replace(/\r\n/g, '\n')).replace(/\n/g, '\r\n');
   const oldOutput = output.replace('t.I18n.lang==="zh-Hant"?" · 未收錄":" · 未收录"', '" · 未收录 / 未收錄"');
   if (source.includes(oldOutput) && oldOutput !== output) return source.replace(oldOutput, output);
   if (source.includes(output)) return source;
