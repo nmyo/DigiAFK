@@ -23,13 +23,13 @@
 
 ### 存档与游客后端
 
-游戏存档使用 localStorage 的 `gachamon-save-v1`，浏览器冒烟脚本检查其训练师数据重载；`pokecatch-anon` 是匿名用户标识，并非存档本身。README 当前对此键的描述有误，不应仅备份该标识来恢复进度。偏好例如 `pokecatch.lang`、`pokecatch.theme` 和 `pokecatch-perf` 也是本地保存；性能默认值仅在该键不存在时写入。localStorage 按浏览器来源隔离，清除站点数据、隐私模式、配额或存储被禁用都可能导致进度不可用或丢失；换域名、协议或端口不自动迁移。Cache Storage 缓存资源，不是存档备份。
+游戏存档使用 localStorage 的 `gachamon-save-v1`，浏览器冒烟脚本检查其训练师数据重载；`pokecatch-anon` 是匿名用户标识，并非存档本身。不应仅备份该标识来恢复进度。偏好例如 `pokecatch.lang`、`pokecatch.theme` 和 `pokecatch-perf` 也是本地保存；性能默认值仅在该键不存在时写入。localStorage 按浏览器来源隔离，清除站点数据、隐私模式、配额或存储被禁用都可能导致进度不可用或丢失；换域名、协议或端口不自动迁移。Cache Storage 缓存资源，不是存档备份。
 
 `scripts/offline-supabase.js` 是游客替身维护源，构建时复制到上述 vendor 文件。它提供兼容的 `window.supabase.createClient` 接口：会话为空，查询和常见 RPC 返回空数据，部分存储/函数操作返回离线错误，不提供账号、云同步或真实社交服务。界面隐藏若干登录和社交入口；隐藏不等于删除上游功能。`offline-ui.js` 监听战斗提示，显示最多 40 条内存日志；该日志不是持久存档。
 
 ## 离线缓存与更新
 
-`site/sw.js` 的缓存版本为 `pc-cache-v19`。安装时逐项尝试预缓存页面、脚本、样式和中文包，单项失败不阻止安装；图片等素材通常在访问时缓存，故首次访问后并不保证全部素材离线可用，浏览器也可能回收缓存。激活时接管页面并发送 `pc-updated`；仅管理规范命名的旧缓存，保留最近两个旧版本，更老页面可能失去离线资源。
+`site/sw.js` 的缓存名称包含注册作用域及版本号，具体版本以该文件为准。安装时逐项尝试预缓存页面、脚本、样式和中文包，单项失败不阻止安装；图片等素材通常在访问时缓存，故首次访问后并不保证全部素材离线可用，浏览器也可能回收缓存。激活时接管页面并发送 `pc-updated`；仅管理规范命名的旧缓存，保留最近两个旧版本，更老页面可能失去离线资源。
 
 - 同源页面、脚本、样式网络优先并用 `no-cache` 校验；网络异常或 5xx 时尝试缓存回退，带查询串的导航还可回退无查询串页面。
 - 其他同源 GET 资源缓存优先，命中后后台更新；未命中则联网获取。`version.json` 始终网络 `no-store`，离线时不回退旧版本。
@@ -39,7 +39,7 @@
 
 ## 补丁与维护
 
-`scripts/build-offline.cjs` 以仓库 `site/` 为基线：复制 `scripts/` 和 `site/` 到临时目录，运行补丁；成功后仅复制 `boot.js`、游戏 bundle、vendor 和 `version.json` 回源目录，失败不执行复制。补丁针对压缩文本的特定片段和数量检查，通常识别已应用状态；上游包变化可能使其明确失败，不能假设适配新版本。构建需要 Node.js，不需要外部镜像；它会写入上述文件，运行前应检查工作区并审阅差异。
+`scripts/build-offline.cjs` 以仓库 `site/` 为基线：复制 `scripts/` 和 `site/` 到临时目录，运行补丁；暂存构建成功后复制 `boot.js`、游戏 bundle、vendor、简繁中文语言包和 `version.json` 回源目录；暂存构建失败时不执行复制，最终逐文件复制并非原子操作。补丁针对压缩文本的特定片段和数量检查，通常识别已应用状态；上游包变化可能使其明确失败，不能假设适配新版本。构建需要 Node.js，不需要外部镜像；它会写入上述文件，运行前应检查工作区并审阅差异。
 
 关键规则及对应脚本：
 
@@ -78,7 +78,7 @@ node scripts/check-sprite-dimensions.cjs
 
 ## 部署
 
-- `scripts/deploy-pages.sh` 将当前 `site/` 复制到临时目录，写入同一构建号的 `version.json` 和页面 `pc-build` meta，初始化临时 `gh-pages` 仓库并强制推送到 origin；它不会先运行构建或测试，执行需推送凭据，会覆盖远端分支。部署 URL 和限制见 `README.md`。
+- `scripts/deploy-pages.sh` 将当前 `site/` 复制到临时目录，写入同一构建号的 `version.json` 和页面 `pc-build` meta，获取远端 `gh-pages` 后在临时仓库创建提交并普通推送到 origin；它不会先运行构建或测试，执行需推送凭据，并会替换部署目录的内容。部署 URL 和限制见 `README.md`。
 - `netlify.toml` 发布 `site`；`vercel.json` 指定 `site` 输出、无构建/安装命令，并为 assets 设置缓存头。`scripts/deploy_vercel.py` 使用 Vercel API 上传站点，可先用 `--dry-run` 列表；真实部署需要令牌。上述方式默认不注入唯一构建号，若依赖版本轮询，需自行同时生成匹配的页面 meta 与版本文件。
 - 部署后应检查实际子路径、资源与 SW 作用域、更新提示和离线回退；静态服务器、浏览器缓存策略及网络环境会影响结果。
 
