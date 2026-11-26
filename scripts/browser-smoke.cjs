@@ -82,6 +82,17 @@ async function main() {
   await new Promise((resolve) => setTimeout(resolve, 6000));
   const restored = await send('Runtime.evaluate', { returnByValue: true, expression: `JSON.parse(localStorage.getItem('gachamon-save-v1')).trainer.sprite` });
   assert.equal(restored.result.result.value, 'leaf', 'trainer selection survives reload');
+  await send('Runtime.evaluate', {awaitPromise:true, expression:`navigator.serviceWorker.ready.then(() => true)`});
+  await send('Network.emulateNetworkConditions', {offline:true, latency:0, downloadThroughput:0, uploadThroughput:0});
+  try {
+    await send('Page.reload');
+    await new Promise(resolve => setTimeout(resolve, 6000));
+    const offline = await send('Runtime.evaluate', {returnByValue:true, expression:`(() => ({title:!!document.querySelector('.ti-go'), trainer:JSON.parse(localStorage.getItem('gachamon-save-v1') || '{}').trainer?.sprite}))()`});
+    assert.equal(offline.result.result.value.title, true, 'game starts from cache offline');
+    assert.equal(offline.result.result.value.trainer, 'leaf', 'save survives offline reload');
+  } finally {
+    await send('Network.emulateNetworkConditions', {offline:false, latency:0, downloadThroughput:-1, uploadThroughput:-1});
+  }
   for (const selector of ['.ti-go','.lab-skip','.lab-av[data-k="leaf"]','.lab-ok']) {
     await send('Runtime.evaluate', {expression:`(() => {const el=document.querySelector(${JSON.stringify(selector)}); if(!el) throw Error('missing '+${JSON.stringify(selector)}); el.click()})()`});
     await new Promise(resolve=>setTimeout(resolve,1500));
