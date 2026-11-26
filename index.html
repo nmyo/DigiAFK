@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-Hans">
-<head><meta name="pc-build" content="1795673789-cf12527-82d2d407">
+<head><meta name="pc-build" content="1795674107-c6a2893-6e5e6868">
   <!-- The page Netlify serves (tools/bundle.mjs --shell, https://pokecatch-online.pages.dev/ filled in). The game itself (code, styles, images) is on
        the CDN (Cloudflare Pages, tools/bundle.mjs --cdn): this page only loads its boot.js, so a publish never redeploys
        it (netlify.toml ignore). The address, and the saves kept by the browser for it, stay the same. -->
@@ -13,6 +13,12 @@
     html[data-theme="light"], html[data-theme="light"] body { background: #e8ecf4; color: #1b2133; }
     #boot-fail { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; }
     #boot-fail button { font: inherit; padding: 10px 20px; border-radius: 10px; border: 0; background: #ffcb05; color: #12141c; font-weight: 700; cursor: pointer; }
+    /* Keep weather and tide duration visible in the narrow mobile arena HUD. */
+    @media (max-width: 640px) {
+      .arena .scene-bar .sb-pill { box-sizing: border-box; height: auto; min-height: 26px; flex-wrap: wrap; row-gap: 3px; padding-block: 3px; white-space: normal; }
+      .arena .scene-bar .sb-wx { flex: 0 0 auto; white-space: nowrap; }
+      .arena .scene-bar .sb-wx .sb-wn { overflow: visible; }
+    }
   </style>
   <script>
     // The service worker answers the game's images from the CDN (tools/shell/sw.js); boot.js waits a moment for it on a
