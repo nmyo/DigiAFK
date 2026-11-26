@@ -51,6 +51,7 @@ require('./patch-dex-encounters.cjs');
 require('./patch-region-dex-rewards.cjs');
 require('./patch-encounter-panel.cjs').patchBundle();
 require('./patch-progress-encounters.cjs').patchBundle();
+require('./patch-progress-ungroup.cjs').patchBundle();
 require('./patch-detail-evolution-region.cjs');
 require('./patch-unown-translation.cjs').patchBundle();
 require('./patch-offline-entries.cjs').patch();
