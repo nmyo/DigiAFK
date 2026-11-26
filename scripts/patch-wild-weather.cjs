@@ -10,13 +10,16 @@ const changes = [
   ['when:Xn[ls],on:!0', 'when:Xn[ls]?.filter(Cs=>!(Cs in a.WEATHER.TYPES)),on:!0']
 ];
 function patchWildWeather(source) {
+  const timePatch = require('./patch-wild-time.cjs');
+  const hasTimePatch = source.includes('let qa=la?Math.max(...la):_a;');
+  if (hasTimePatch) for (const [before, after] of [...timePatch.changes].reverse()) source = source.replace(after, before);
   for (const [oldText, newText] of changes) {
     const oldCount = source.split(oldText).length - 1, newCount = source.split(newText).length - 1;
     if (newCount === 1 && oldCount === (newText.includes(oldText) ? 1 : 0)) continue;
     if (oldCount !== 1 || newCount !== (oldText.includes(newText) ? 1 : 0)) throw new Error('Unexpected wild weather seam: ' + oldText);
     source = source.replace(oldText, newText);
   }
-  return source;
+  return hasTimePatch ? timePatch.patch(source) : source;
 }
 function patchBundle() {
   const file = path.join(__dirname, '..', 'site', 'bundle', 'app.c74e480997.js');
